@@ -1,1 +1,270 @@
-ayoko maghello
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>RJ45 Activities</title>
+  <style>
+    :root{
+      --bg:#0f0f0f;
+      --text:#f1f1f1;
+      --muted:#aaaaaa;
+      --accent:#3ea6ff;
+      --radius:14px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      color:var(--text);
+      background:var(--bg);
+    }
+    .wrap{max-width:1480px;margin:auto;padding:24px}
+
+    /* Header */
+    .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+    .logo{font-weight:800;letter-spacing:.3px}
+    .pill{padding:.4rem .7rem;border-radius:999px;background:#222;color:#ddd;font-size:14px}
+
+    /* Grid + cards */
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+      gap:24px 16px;
+    }
+    .card{display:block;color:inherit;text-decoration:none}
+    .thumb{
+      position:relative;background:#222;border-radius:var(--radius);overflow:hidden;
+      aspect-ratio:16/9;transition:transform .18s ease;
+    }
+    .card:hover .thumb{transform:translateY(-3px)}
+    .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+
+    .row{display:flex;gap:12px;margin-top:10px}
+    .avatar{flex:0 0 auto;width:36px;height:36px;border-radius:50%;background:#2a2a2a;overflow:hidden}
+    .avatar img{width:100%;height:100%;object-fit:cover;display:block}
+    .meta{min-width:0}
+    .title{
+      font-weight:600;font-size:15px;margin:0 0 6px 0;
+      display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;
+    }
+    .channel{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:13px}
+
+    /* tiny icon + menu */
+    .icon{width:14px;height:14px;display:inline-block;vertical-align:-2px;fill:currentColor}
+    .verified{color:var(--accent)}
+    .menu{margin-left:auto;color:#999;align-self:flex-start;padding:4px;border-radius:8px}
+    .menu:hover{background:#262626}
+
+    /* Responsive tweak */
+    @media (max-width:560px){.wrap{padding:16px}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <div class="logo">RJ45</div>
+      <div class="pill">Activities</div>
+    </div>
+
+    <div class="grid">
+
+      <!-- CARD 1 -->
+      <a class="card"
+         href="act1/humidity-temp.html"
+         target="_blank"
+         rel="noopener noreferrer"
+         title="Open HUMIDITY AND TEMPERATURE SENSOR">
+        <div class="thumb">
+       <img src="act1/humidity.webp" alt="">
+        </div>
+        <div class="row">
+        <div class="avatar"><img src="act1/1.png" alt=""></div>
+          <div class="meta">
+            <h3 class="title">HUMIDITY AND TEMPERATURE SENSOR</h3>
+            <div class="channel">
+              Rizal Laqui
+              <svg class="icon verified" viewBox="0 0 24 24" aria-label="verified">
+                <path d="M12 2l2.1 2.7 3.3-.3-1 3.2 2.5 2-3 .9-.9 3-2.5-2.1-2.5 2.1-.9-3-3-.9 2.5-2-1-3.2 3.3.3L12 2z"/>
+              </svg>
+            </div>
+          </div>
+          <div class="menu" title="Options">⋯</div>
+        </div>
+      </a>
+
+      <!-- CARD 2 -->
+      <a class="card"
+         href="act2/distance-sensor.html"
+         target="_blank"
+         rel="noopener noreferrer"
+         title="Open DISTANCE SENSOR">
+        <div class="thumb">
+          <img src="act2/distance.jpg" alt="">
+        </div>
+        <div class="row">
+          <div class="avatar"><img src="act2/2.png" alt=""></div>
+          <div class="meta">
+            <h3 class="title">DISTANCE SENSOR</h3>
+            <div class="channel">Ronel Paglomutan</div>
+          </div>
+          <div class="menu">⋯</div>
+        </div>
+      </a>
+
+      <!-- CARD 3 -->
+      <a class="card"
+         href="act3/motion-camera.html"
+         target="_blank"
+         rel="noopener noreferrer"
+         title="Open MOTION SENSOR AND RASPBERRY PI CAMERA MODULE">
+        <div class="thumb">
+          <img src="act3/motion.jpg" alt="">
+        </div>
+        <div class="row">
+          <div class="avatar"><img src="act3/3.png" alt=""></div>
+          <div class="meta">
+            <h3 class="title">MOTION SENSOR AND RASPBERRY PI CAMERA MODULE</h3>
+            <div class="channel">Rizal Laqui</div>
+          </div>
+          <div class="menu">⋯</div>
+        </div>
+      </a>
+
+      <!-- CARD 4 -->
+      <a class="card"
+         href="act4/gas-vibration.html"
+         target="_blank"
+         rel="noopener noreferrer"
+         title="GAS AND VIBRATION SENSOR WITH WEBSITE">
+        <div class="thumb">
+          <img src="https://picsum.photos/id/1050/1280/720" alt="">
+        </div>
+        <div class="row">
+          <div class="avatar"><img src="act4/4.png" alt=""></div>
+          <div class="meta">
+            <h3 class="title">GAS AND VIBRATION SENSOR WITH WEBSITE</h3>
+            <div class="channel">Ronel Paglomutan</div>
+          </div>
+          <div class="menu">⋯</div>
+        </div>
+      </a>
+
+      <!-- CARD 5 -->
+      <a class="card"
+         href="act5/sound-raindrop.html"
+         target="_blank"
+         rel="noopener noreferrer"
+         title="SOUND AND RAINDROP SENSOR WITH WEBSITE">
+        <div class="thumb">
+          <img src="https://picsum.photos/id/1011/1280/720" alt="">
+        </div>
+        <div class="row">
+          <div class="avatar"><img src="act5/5.png" alt=""></div>
+          <div class="meta">
+            <h3 class="title">SOUND AND RAINDROP SENSOR WITH WEBSITE</h3>
+            <div class="channel">Rizal Laqui</div>
+          </div>
+          <div class="menu">⋯</div>
+        </div>
+      </a>
+
+      <!-- CARD 6 -->
+      <a class="card"
+         href="act6/GPS-module.html"
+         target="_blank"
+         rel="noopener noreferrer"
+         title="GPS MODULE WITH WEBSITE">
+        <div class="thumb">
+          <img src="https://picsum.photos/id/1043/1280/720" alt="">
+        </div>
+        <div class="row">
+          <div class="avatar"><img src="act6/6.png" alt=""></div>
+          <div class="meta">
+            <h3 class="title">GPS MODULE WITH WEBSITE</h3>
+            <div class="channel">Ronel Paglomutan</div>
+          </div>
+          <div class="menu">⋯</div>
+        </div>
+      </a>
+
+      <!-- CARD 7 -->
+      <a class="card"
+         href="act7/voice-control.html"
+         target="_blank"
+         rel="noopener noreferrer"
+         title="VOICE CONTROL LED'S WITH WEBSITE">
+        <div class="thumb">
+          <img src="https://picsum.photos/id/1043/1280/720" alt="">
+        </div>
+        <div class="row">
+          <div class="avatar"><img src="act7/7.png" alt=""></div>
+          <div class="meta">
+            <h3 class="title">VOICE CONTROL LED'S WITH WEBSITE</h3>
+            <div class="channel">Rizal Laqui</div>
+          </div>
+          <div class="menu">⋯</div>
+        </div>
+      </a>
+
+      <!-- CARD 8 -->
+      <a class="card"
+         href="act8/Text-to-Speech.html"
+         target="_blank"
+         rel="noopener noreferrer"
+         title="TEXT TO SPEECH WITH WEBSITE">
+        <div class="thumb">
+          <img src="https://picsum.photos/id/1043/1280/720" alt="">
+        </div>
+        <div class="row">
+          <div class="avatar"><img src="act8/8.png" alt=""></div>
+          <div class="meta">
+            <h3 class="title">TEXT TO SPEECH WITH WEBSITE</h3>
+            <div class="channel">Ronel Paglomutan</div>
+          </div>
+          <div class="menu">⋯</div>
+        </div>
+      </a>
+
+      <!-- CARD 9 -->
+      <a class="card"
+         href="act9/object-detection.html"
+         target="_blank"
+         rel="noopener noreferrer"
+         title="OBJECT DETECTION USING RASPBERRY PI CAMERA WITH WEBSITE">
+        <div class="thumb">
+          <img src="https://picsum.photos/id/1043/1280/720" alt="">
+        </div>
+        <div class="row">
+          <div class="avatar"><img src="act9/9.png" alt=""></div>
+          <div class="meta">
+            <h3 class="title">OBJECT DETECTION USING RASPBERRY PI CAMERA WITH WEBSITE</h3>
+            <div class="channel">Rizal Laqui</div>
+          </div>
+          <div class="menu">⋯</div>
+        </div>
+      </a>
+
+      <!-- CARD 10 -->
+      <a class="card"
+         href="act10/face-recognition.html"
+         target="_blank"
+         rel="noopener noreferrer"
+         title="FACE RECOGNITION USING RASPBERRY PI CAMERA WITH WEBSITE">
+        <div class="thumb">
+          <img src="https://picsum.photos/id/1043/1280/720" alt="">
+        </div>
+        <div class="row">
+          <div class="avatar"><img src="act10/10.png" alt=""></div>
+          <div class="meta">
+            <h3 class="title">FACE RECOGNITION USING RASPBERRY PI CAMERA WITH WEBSITE</h3>
+            <div class="channel">Ronel Paglomutan</div>
+          </div>
+          <div class="menu">⋯</div>
+        </div>
+      </a>
+
+    </div>
+  </div>
+</body>
+</html>
