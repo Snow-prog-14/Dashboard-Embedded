@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Dual HC-SR04 + DHT11 Monitor</title>
+<style>
+  :root{
+    --bg:#0f0f0f; --card:#181818; --text:#f1f1f1; --muted:#a9a9a9;
+    --accentA:#3ea6ff;        /* Distance A line */
+    --accentB:#a78bfa;        /* Distance B line */
+    --accentT:#ff6b9e;        /* Temp line */
+    --accentH:#3db6ff;        /* Humidity line */
+    --ok:#16a34a; --bad:#ef4444; --warn:#f59e0b; --radius:18px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial}
+  .wrap{max-width:1100px;margin:auto;padding:24px}
+  header{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:16px}
+  h1{font-size:22px;margin:0}
+  .card{background:var(--card);border-radius:var(--radius);padding:18px;box-shadow:0 10px 36px rgba(0,0,0,.28)}
+  .row{display:flex;flex-wrap:wrap;gap:16px}
+  .col{flex:1 1 300px}
+  .muted{color:var(--muted)}
+  .big{font-size:44px;font-weight:800;letter-spacing:.3px}
+  .statline{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;color:var(--muted);font-size:14px}
+  .pill{background:#0d0d0d;border:1px solid #2a2a2a;border-radius:999px;padding:6px 10px}
+  .badge{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:6px 10px;font-size:13px}
+  .ok{background:color-mix(in oklab, var(--ok) 20%, transparent);border:1px solid var(--ok)}
+  .bad{background:color-mix(in oklab, var(--bad) 20%, transparent);border:1px solid var(--bad)}
+  .warn{background:color-mix(in oklab, var(--warn) 20%, transparent);border:1px solid var(--warn)}
+  .legend{display:flex;gap:12px;align-items:center;margin-top:8px}
+  .dot{width:10px;height:10px;border-radius:999px;display:inline-block}
+  canvas{width:100%;height:360px;display:block}
+
+  :root{
+  /* ...your other vars... */
+  --accentH:#f59e0b; /* orange for Humidity */
+}
+
+  /* Buzzer icon + blink */
+  #buzzer{
+    font-size: 32px;
+    transition: transform .2s ease, color .2s ease, opacity .2s ease;
+    display:inline-flex;align-items:center;justify-content:center;
+    width:42px;height:42px;border-radius:50%;
+    background:#0d0d0d;border:1px solid #2a2a2a;
+  }
+  .buzzer-off{ color: var(--muted); transform: scale(1); }
+  .buzzer-on { color: var(--bad);   transform: scale(1.2); animation: buzzer-blink 1s steps(2, start) infinite; }
+  @keyframes buzzer-blink { 0%{opacity:1} 50%{opacity:.25} 100%{opacity:1} }
+
+  /* Toggles under the graph */
+  .toggles{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px}
+  .toggle{
+    display:inline-flex;align-items:center;gap:8px;
+    background:#0d0d0d;border:1.5px solid #333;border-radius:999px;
+    padding:6px 10px;font-size:13px;color:var(--muted);cursor:pointer;
+    user-select:none;
+  }
+  .toggle .swatch{width:18px;height:10px;border-radius:4px;border:2px solid currentColor;background:transparent}
+  .toggle.active{color:#fff;border-color:currentColor;background:rgba(255,255,255,.06)}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Dual HC-SR04 + DHT11 Monitor</h1>
+      <span id="overall" class="badge warn">starting…</span>
+    </header>
+
+    <!-- Buzzer row -->
+    <div class="legend" style="margin-top:14px; align-items:center; gap:10px">
+      <div id="buzzer" class="buzzer-off" title="Buzzer status">🔔</div>
+      <span class="muted">Buzzer</span>
+      <span id="buzzVal" class="pill">--.-- cm</span>
+      <span id="window" class="pill" style="margin-left:auto">window: —</span>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <!-- Sensor A -->
+        <div class="col">
+          <div class="muted">Sensor A (cm)</div>
+          <div id="distA" class="big">--.--</div>
+          <div class="statline">
+            <span id="statA" class="pill">A: req 0 • ok 0 • err 0</span>
+            <span id="updA" class="pill">A updated: —</span>
+          </div>
+        </div>
+        <!-- Sensor B -->
+        <div class="col">
+          <div class="muted">Sensor B (cm)</div>
+          <div id="distB" class="big">--.--</div>
+          <div class="statline">
+            <span id="statB" class="pill">B: req 0 • ok 0 • err 0</span>
+            <span id="updB" class="pill">B updated: —</span>
+          </div>
+        </div>
+      </div>
+
+      <canvas id="chart" width="1000" height="380" aria-label="Multi-sensor chart"></canvas>
+
+      <!-- Toggleable legend BELOW the graph -->
+      <div class="toggles" id="toggles">
+        <button class="toggle active" data-series="a"  style="color:var(--accentA)">
+          <span class="swatch"></span> A (cm)
+        </button>
+        <button class="toggle active" data-series="b"  style="color:var(--accentB)">
+          <span class="swatch"></span> B (cm)
+        </button>
+        <button class="toggle"        data-series="t"  style="color:var(--accentT)">
+          <span class="swatch"></span> Temp (°C)
+        </button>
+        <button class="toggle" data-series="h" style="color:var(--accentH)">
+      <span class="swatch"></span> Humidity (%)
+        </button>
+
+      </div>
+    </div>
+
+    <!-- Optional DHT mini readout -->
+    <div class="legend" style="margin-top:10px">
+      <span class="muted">DHT11</span>
+      <span id="temp" class="pill">--.- °C</span>
+      <span id="hum" class="pill">-- %</span>
+      <span id="updDht" class="pill">DHT updated: —</span>
+    </div>
+  </div>
+
+  <!-- No Chart.js needed; we use custom canvas -->
+  <script src="script.js"></script>
+</body>
+</html>
