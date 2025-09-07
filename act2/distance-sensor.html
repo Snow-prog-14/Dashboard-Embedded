@@ -3,132 +3,566 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Dual HC-SR04 + DHT11 Monitor</title>
+<title>Distance Strip + DHT Line (last 60s)</title>
 <style>
   :root{
-    --bg:#0f0f0f; --card:#181818; --text:#f1f1f1; --muted:#a9a9a9;
-    --accentA:#3ea6ff;        /* Distance A line */
-    --accentB:#a78bfa;        /* Distance B line */
-    --accentT:#ff6b9e;        /* Temp line */
-    --accentH:#3db6ff;        /* Humidity line */
-    --ok:#16a34a; --bad:#ef4444; --warn:#f59e0b; --radius:18px;
+    --bg:#0f0f10;
+    --card:#17181a;
+    --text:#eaeaea;
+    --muted:#a0a0a0;
+    --accentA:#7b83ff;  /* Sensor A dots */
+    --accentB:#ff8b8b;  /* Sensor B dots */
+    --accentT:#ff6b9e;  /* Temp line */
+    --accentH:#3db6ff;  /* Humidity line */
   }
+
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial}
-  .wrap{max-width:1100px;margin:auto;padding:24px}
-  header{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:16px}
-  h1{font-size:22px;margin:0}
-  .card{background:var(--card);border-radius:var(--radius);padding:18px;box-shadow:0 10px 36px rgba(0,0,0,.28)}
-  .row{display:flex;flex-wrap:wrap;gap:16px}
-  .col{flex:1 1 300px}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial}
+  .wrap{max-width:1100px;margin:auto;padding:16px 20px 48px}
+
+  h1{font-size:20px;margin:0 0 12px}
+  .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:12px}
+
+  .card{
+    background:var(--card); border:1px solid #1e1f22; border-radius:14px; padding:12px;
+    box-shadow:0 1px 0 rgba(255,255,255,0.02) inset, 0 8px 24px rgba(0,0,0,0.25);
+  }
+  .title{font-weight:600;margin-bottom:6px;color:#fff}
   .muted{color:var(--muted)}
-  .big{font-size:44px;font-weight:800;letter-spacing:.3px}
-  .statline{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;color:var(--muted);font-size:14px}
-  .pill{background:#0d0d0d;border:1px solid #2a2a2a;border-radius:999px;padding:6px 10px}
-  .badge{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:6px 10px;font-size:13px}
-  .ok{background:color-mix(in oklab, var(--ok) 20%, transparent);border:1px solid var(--ok)}
-  .bad{background:color-mix(in oklab, var(--bad) 20%, transparent);border:1px solid var(--bad)}
-  .warn{background:color-mix(in oklab, var(--warn) 20%, transparent);border:1px solid var(--warn)}
-  .legend{display:flex;gap:12px;align-items:center;margin-top:8px}
-  .dot{width:10px;height:10px;border-radius:999px;display:inline-block}
-  canvas{width:100%;height:360px;display:block}
+  .big{font-size:28px;font-weight:700;margin:2px 0 4px}
+  .sub{font-size:12px;color:#muted}
+  .row.tight{gap:8px}
 
-  :root{
-  /* ...your other vars... */
-  --accentH:#f59e0b; /* orange for Humidity */
-}
+  .badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:12px}
+  .badge.ok{background:#11361c;color:#6bff9a;border:1px solid #1a5a2d}
+  .badge.warn{background:#2b2a14;color:#ffe16b;border:1px solid #6b5f1a}
+  .badge.bad{background:#3a1919;color:#ff9a9a;border:1px solid #5a1a1a}
 
-  /* Buzzer icon + blink */
-  #buzzer{
-    font-size: 32px;
-    transition: transform .2s ease, color .2s ease, opacity .2s ease;
-    display:inline-flex;align-items:center;justify-content:center;
-    width:42px;height:42px;border-radius:50%;
-    background:#0d0d0d;border:1px solid #2a2a2a;
+  .buzzer{
+    display:flex;align-items:center;gap:8px; padding:8px 10px;border-radius:12px;
+    border:1px solid #262626; background:#121212;
   }
-  .buzzer-off{ color: var(--muted); transform: scale(1); }
-  .buzzer-on { color: var(--bad);   transform: scale(1.2); animation: buzzer-blink 1s steps(2, start) infinite; }
-  @keyframes buzzer-blink { 0%{opacity:1} 50%{opacity:.25} 100%{opacity:1} }
+  .buzzer .dot{width:12px;height:12px;border-radius:50%;background:#555}
+  .buzzer-on .dot{background:#ff5959; box-shadow:0 0 12px rgba(255,90,90,0.8)}
+  .buzzer-on .label::after{content:" ON"; color:#ff9a9a}
+  .buzzer-off .label::after{content:" OFF"; color:#9aff9a}
 
-  /* Toggles under the graph */
-  .toggles{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px}
+  .toggles{display:flex;flex-wrap:wrap;gap:8px}
   .toggle{
-    display:inline-flex;align-items:center;gap:8px;
-    background:#0d0d0d;border:1.5px solid #333;border-radius:999px;
-    padding:6px 10px;font-size:13px;color:var(--muted);cursor:pointer;
-    user-select:none;
+    background:#141415;border:1px solid #2a2b2f;color:#cfcfcf;padding:6px 10px;border-radius:10px;font-size:12px;cursor:pointer;
   }
-  .toggle .swatch{width:18px;height:10px;border-radius:4px;border:2px solid currentColor;background:transparent}
-  .toggle.active{color:#fff;border-color:currentColor;background:rgba(255,255,255,.06)}
+  .toggle.active{outline:2px solid #3a82f7;color:#fff}
+
+  canvas{display:block;width:100%;height:auto;border:1px solid #1e1f22;border-radius:12px;background:linear-gradient(#141414,#101010)}
+  #strip{margin-top:8px}
+  #dhtChart{margin-top:8px}
+
+  .legend{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+  .key{display:inline-flex;align-items:center;gap:8px;color:#d6d6d6;font-size:12px}
+  .sw{width:10px;height:10px;border-radius:50%}
 </style>
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <h1>Dual HC-SR04 + DHT11 Monitor</h1>
-      <span id="overall" class="badge warn">starting…</span>
-    </header>
+<div class="wrap">
+  <h1>Distance Strip + DHT Line (last 60s)</h1>
 
-    <!-- Buzzer row -->
-    <div class="legend" style="margin-top:14px; align-items:center; gap:10px">
-      <div id="buzzer" class="buzzer-off" title="Buzzer status">🔔</div>
-      <span class="muted">Buzzer</span>
-      <span id="buzzVal" class="pill">--.-- cm</span>
-      <span id="window" class="pill" style="margin-left:auto">window: —</span>
+  <div class="row">
+    <div class="card">
+      <div class="title">Status</div>
+      <div class="statline" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <span id="overall" class="badge warn">connecting…</span>
+        <span class="sub">window: 1m 0s</span>
+      </div>
+      <div class="sub" style="margin-top:6px">
+        <span id="statA">A: req 0 • ok 0 • err 0</span> &nbsp; | &nbsp;
+        <span id="statB">B: req 0 • ok 0 • err 0</span>
+      </div>
     </div>
 
     <div class="card">
-      <div class="row">
-        <!-- Sensor A -->
-        <div class="col">
-          <div class="muted">Sensor A (cm)</div>
-          <div id="distA" class="big">--.--</div>
-          <div class="statline">
-            <span id="statA" class="pill">A: req 0 • ok 0 • err 0</span>
-            <span id="updA" class="pill">A updated: —</span>
-          </div>
-        </div>
-        <!-- Sensor B -->
-        <div class="col">
-          <div class="muted">Sensor B (cm)</div>
-          <div id="distB" class="big">--.--</div>
-          <div class="statline">
-            <span id="statB" class="pill">B: req 0 • ok 0 • err 0</span>
-            <span id="updB" class="pill">B updated: —</span>
-          </div>
-        </div>
+      <div class="title">Buzzer</div>
+      <div id="buzzer" class="buzzer buzzer-off">
+        <div class="dot"></div>
+        <div class="label">Buzzer</div>
+        <div id="buzzVal" class="sub" style="margin-left:auto">--.-- cm</div>
       </div>
-
-      <canvas id="chart" width="1000" height="380" aria-label="Multi-sensor chart"></canvas>
-
-      <!-- Toggleable legend BELOW the graph -->
-      <div class="toggles" id="toggles">
-        <button class="toggle active" data-series="a"  style="color:var(--accentA)">
-          <span class="swatch"></span> A (cm)
-        </button>
-        <button class="toggle active" data-series="b"  style="color:var(--accentB)">
-          <span class="swatch"></span> B (cm)
-        </button>
-        <button class="toggle"        data-series="t"  style="color:var(--accentT)">
-          <span class="swatch"></span> Temp (°C)
-        </button>
-        <button class="toggle" data-series="h" style="color:var(--accentH)">
-      <span class="swatch"></span> Humidity (%)
-        </button>
-
-      </div>
-    </div>
-
-    <!-- Optional DHT mini readout -->
-    <div class="legend" style="margin-top:10px">
-      <span class="muted">DHT11</span>
-      <span id="temp" class="pill">--.- °C</span>
-      <span id="hum" class="pill">-- %</span>
-      <span id="updDht" class="pill">DHT updated: —</span>
+      <div class="sub" style="margin-top:6px;">Threshold: 12 cm (ON when ≥ 12 cm)</div>
     </div>
   </div>
 
-  <!-- No Chart.js needed; we use custom canvas -->
-  <script src="script.js"></script>
+  <div class="row tight">
+    <div class="card">
+      <div class="title">Ultrasonic A</div>
+      <div class="big" id="distA">--.--</div>
+      <div class="sub" id="updA">A updated: —</div>
+    </div>
+    <div class="card">
+      <div class="title">Ultrasonic B</div>
+      <div class="big" id="distB">--.--</div>
+      <div class="sub" id="updB">B updated: —</div>
+    </div>
+    <div class="card">
+      <div class="title">DHT</div>
+      <div class="big"><span id="temp">--.- °C</span> &nbsp; | &nbsp; <span id="hum">-- %</span></div>
+      <div class="sub" id="updDht">DHT updated: —</div>
+      <!-- NEW: peak readouts -->
+      <div class="sub">Peak (60s): <span id="peakTemp">--.- °C</span> &nbsp; | &nbsp; <span id="peakHum">-- %</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="title">Series</div>
+    <div id="toggles" class="toggles">
+      <button class="toggle active" data-series="a">Ultrasonic A</button>
+      <button class="toggle active" data-series="b">Ultrasonic B</button>
+      <button class="toggle active" data-series="t">Temp (°C)</button>
+      <button class="toggle active" data-series="h">Humidity (%)</button>
+    </div>
+  </div>
+
+  <!-- Graph 1: Distance strip chart -->
+  <div class="card">
+    <div class="title">Distance (last 60s) — Strip Chart</div>
+    <div class="legend">
+      <span class="key"><span class="sw" style="background:var(--accentA)"></span> Sensor A</span>
+      <span class="key"><span class="sw" style="background:var(--accentB)"></span> Sensor B</span>
+    </div>
+    <canvas id="strip" width="1100" height="260"></canvas>
+  </div>
+
+  <!-- Graph 2: DHT time line -->
+  <div class="card">
+    <div class="title">Temperature & Humidity (last 60s)</div>
+    <div class="legend">
+      <span class="key"><span class="sw" style="background:var(--accentT)"></span> Temperature (°C)</span>
+      <span class="key"><span class="sw" style="background:var(--accentH)"></span> Humidity (%)</span>
+    </div>
+    <canvas id="dhtChart" width="1100" height="260"></canvas>
+  </div>
+</div>
+
+<script>
+/* =========================
+   CONFIG
+   ========================= */
+const CONFIG = {
+  sensors: [
+    { name: 'A', url: 'http://192.168.43.185:5000/api/ultra', colorVar: '--accentA' },
+    { name: 'B', url: 'http://192.168.43.185:5000/api/sonic',  colorVar: '--accentB' }
+  ],
+  dht: { url: 'http://192.168.43.185:5000/api/dht', intervalMs: 5000 },
+  intervalMs: 2000,
+  windowPoints: 60,
+  timeoutMs: 3500,
+  buzzerThresholdCm: 12
+};
+const WINDOW_SEC = 60;
+
+/* toggles */
+const visible = { a:true, b:true, t:true, h:true };
+
+/* colors (resolved at start) */
+const COLORS = { a:'#7b83ff', b:'#ff8b8b', t:'#ff6b9e', h:'#3db6ff' };
+
+/* =========================
+   STATE & DOM
+   ========================= */
+const state = [
+  { sent:0, ok:0, err:0, data:[] }, // A
+  { sent:0, ok:0, err:0, data:[] }  // B
+];
+const dhtState = { t:[], h:[] };
+
+const elOverall = document.getElementById('overall');
+const elDistA   = document.getElementById('distA');
+const elDistB   = document.getElementById('distB');
+const elUpdA    = document.getElementById('updA');
+const elUpdB    = document.getElementById('updB');
+const elStatA   = document.getElementById('statA');
+const elStatB   = document.getElementById('statB');
+const buzzerEl  = document.getElementById('buzzer');
+const buzzValEl = document.getElementById('buzzVal');
+const elTemp    = document.getElementById('temp');
+const elHum     = document.getElementById('hum');
+const elUpdDht  = document.getElementById('updDht');
+const togglesEl = document.getElementById('toggles');
+const elPeakTemp= document.getElementById('peakTemp');
+const elPeakHum = document.getElementById('peakHum');
+
+const stripCanvas = document.getElementById('strip');
+const sctx        = stripCanvas.getContext('2d');
+const dhtCanvas   = document.getElementById('dhtChart');
+const dctx        = dhtCanvas.getContext('2d');
+
+/* =========================
+   HELPERS
+   ========================= */
+function getCSS(varName){ return getComputedStyle(document.documentElement).getPropertyValue(varName).trim(); }
+const nowTs = () => Math.floor(Date.now()/1000);
+const fmtTs = (t) => new Date(t*1000).toLocaleString();
+function setBadge(node, kind, text){ node.className = 'badge ' + (kind==='ok'?'ok':kind==='bad'?'bad':'warn'); node.textContent = text; }
+function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
+function fetchWithTimeout(url, ms){ const c=new AbortController(); const id=setTimeout(()=>c.abort(), ms); return fetch(url,{signal:c.signal}).finally(()=>clearTimeout(id)); }
+function addPointArr(arr, ts, value, maxLen){
+  arr.push({ts, value});
+  const cutoff = nowTs() - WINDOW_SEC;
+  while (arr.length && arr[0].ts < cutoff) arr.shift();
+  if (arr.length > maxLen) arr.shift();
+}
+function addPoint(i, ts, v){ addPointArr(state[i].data, ts, v, CONFIG.windowPoints); }
+function addDhtPoint(k, ts, v){ addPointArr(dhtState[k], ts, v, CONFIG.windowPoints); }
+const map = (v,a,b,c,d)=> ((v-a)/(b-a))*(d-c)+c;
+const lerp = (a,b,t)=> a + (b-a)*t;
+function latestNumberArr(arr){ for (let k=arr.length-1;k>=0;k--){ const v=arr[k].value; if (typeof v==='number'&&Number.isFinite(v)) return v; } return null; }
+function latestNumber(i){ return latestNumberArr(state[i].data); }
+function updateMiniStats(){
+  elStatA.textContent = `A: req ${state[0].sent} • ok ${state[0].ok} • err ${state[0].err}`;
+  elStatB.textContent = `B: req ${state[1].sent} • ok ${state[1].ok} • err ${state[1].err}`;
+}
+
+/* peak helpers */
+function peakOf(arr){
+  const cutoff = nowTs() - WINDOW_SEC;
+  let best = null;
+  for (const p of arr){
+    if (p.ts >= cutoff && typeof p.value === 'number'){
+      if (!best || p.value > best.value) best = p;
+    }
+  }
+  return best; // {ts,value} or null
+}
+function updateDHTPeaks(){
+  const pt = peakOf(dhtState.t);
+  const ph = peakOf(dhtState.h);
+  if (elPeakTemp) elPeakTemp.textContent = pt ? `${pt.value.toFixed(1)} °C` : '--.- °C';
+  if (elPeakHum)  elPeakHum.textContent  = ph ? `${Math.round(ph.value)} %` : '-- %';
+  return {pt, ph};
+}
+
+/* jitter so distance dots don't overlap perfectly */
+function jitterFor(seed, amp=10){
+  const f = Math.sin(seed*12.9898)*43758.5453;
+  return ((f - Math.floor(f)) - 0.5) * 2 * amp; // [-amp, +amp]
+}
+
+/* =========================
+   POLLING
+   ========================= */
+async function pollSensor(i){
+  const sensor = CONFIG.sensors[i]; if (!sensor.url) return;
+  state[i].sent++; updateMiniStats();
+  try{
+    const res = await fetchWithTimeout(sensor.url, CONFIG.timeoutMs);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const j = await res.json();
+    const ts = Number.isFinite(j.ts) ? j.ts : nowTs();
+    const v = (typeof j.distance_cm==='number') ? j.distance_cm : null;
+    addPoint(i, ts, v);
+    state[i].ok++; updateMiniStats(); updateLastValues(i, ts, v);
+  }catch(e){
+    const ts = nowTs(); addPoint(i, ts, null);
+    state[i].err++; updateMiniStats(); updateLastValues(i, ts, null);
+  }
+}
+function updateLastValues(i, ts, val){
+  if (i===0){ elDistA.textContent = (typeof val==='number') ? val.toFixed(2) : '--.--'; elUpdA.textContent = 'A updated: ' + fmtTs(ts); }
+  else { elDistB.textContent = (typeof val==='number') ? val.toFixed(2) : '--.--'; elUpdB.textContent = 'B updated: ' + fmtTs(ts); }
+}
+const STAGGER_MS = 150;
+let loopHandle = null, looping = false;
+async function pollLoop(){
+  if (looping) return; looping = true;
+  try{
+    setBadge(elOverall,'warn','connecting…');
+    await pollSensor(0); await sleep(STAGGER_MS); await pollSensor(1);
+
+    const anyOK = state.some(s=>s.ok>0);
+    const allErr = state.every(s=>s.sent>0 && s.ok===0);
+    if (anyOK) setBadge(elOverall,'ok','connected');
+    else if (allErr) setBadge(elOverall,'bad','offline');
+
+    updateBuzzer(latestNumber(0), latestNumber(1));
+    renderDistanceStrip();
+  } finally {
+    looping=false;
+    loopHandle = setTimeout(pollLoop, CONFIG.intervalMs);
+  }
+}
+
+async function pollDHT(){
+  try{
+    const res = await fetchWithTimeout(CONFIG.dht.url, CONFIG.timeoutMs);
+    let j=null; try{ j=await res.json(); }catch{}
+    const tNow = nowTs();
+    if (res.ok && j && (typeof j.temperature_c==='number' || typeof j.humidity_percent==='number' || j.ok)){
+      const ts = Number.isFinite(j.ts) ? j.ts : tNow;
+      if (typeof j.temperature_c==='number'){ addDhtPoint('t', ts, j.temperature_c); elTemp.textContent = `${j.temperature_c.toFixed(1)} °C`; }
+      else addDhtPoint('t', tNow, null);
+      if (typeof j.humidity_percent==='number'){ addDhtPoint('h', ts, j.humidity_percent); elHum.textContent = `${j.humidity_percent.toFixed(0)} %`; }
+      else addDhtPoint('h', tNow, null);
+      elUpdDht.textContent = `DHT updated: ${fmtTs(ts)}`;
+    } else {
+      const msg = j?.error || `HTTP ${res.status}`;
+      elUpdDht.textContent = `DHT error: ${msg}`;
+      addDhtPoint('t', tNow, null); addDhtPoint('h', tNow, null);
+    }
+    updateDHTPeaks();   // <-- update the text peaks
+    renderDHTChart();   // <-- redraw graph (also shows peak markers)
+  }catch(e){
+    elUpdDht.textContent = `DHT error: ${e}`;
+  }
+}
+
+/* =========================
+   DRAW HELPERS
+   ========================= */
+function drawYGrid(ctx, M,PW,PH, yMin,yMax, yLabel){
+  ctx.strokeStyle='#2a2a2a'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(M.l, M.t); ctx.lineTo(M.l, M.t+PH); ctx.stroke();                  // Y axis
+  ctx.beginPath(); ctx.moveTo(M.l, M.t+PH); ctx.lineTo(M.l+PW, M.t+PH); ctx.stroke();            // X baseline
+
+  ctx.setLineDash([3,4]); ctx.strokeStyle='#222';
+  for(let i=0;i<=5;i++){
+    const v = lerp(yMin,yMax,i/5);
+    const y = M.t + map(v, yMax, yMin, 0, PH);
+    ctx.beginPath(); ctx.moveTo(M.l, y); ctx.lineTo(M.l+PW, y); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = '#a9a9a9'; ctx.font = '12px system-ui,-apple-system,Segoe UI,Roboto,Arial';
+  for(let i=0;i<=5;i++){
+    const v = lerp(yMin,yMax,i/5);
+    const y = M.t + map(v, yMax, yMin, 0, PH);
+    ctx.fillText(v.toFixed(0), 16, y+4);
+  }
+  if (yLabel){ ctx.fillText(yLabel, 8, M.t + 12); }
+}
+
+function plotLineWithScale(ctx, pts, color, M,PW,PH,tMin,tMax,yMin,yMax){
+  ctx.lineWidth=2; ctx.strokeStyle=color;
+  ctx.beginPath(); let started=false;
+  for (const p of pts){
+    if (typeof p.v !== 'number') continue;
+    const x = M.l + map(p.ts, tMin, tMax, 0, PW);
+    const y = M.t + map(p.v, yMax, yMin, 0, PH);
+    if (!started){ ctx.moveTo(x,y); started=true; } else ctx.lineTo(x,y);
+  }
+  if (started) ctx.stroke();
+  for (let i=pts.length-1;i>=0;i--){
+    const v=pts[i].v; if (typeof v!=='number') continue;
+    const x = M.l + map(pts[i].ts, tMin, tMax, 0, PW);
+    const y = M.t + map(v, yMax, yMin, 0, PH);
+    ctx.beginPath(); ctx.arc(x,y,4,0,Math.PI*2); ctx.fillStyle=color; ctx.fill(); break;
+  }
+}
+
+function drawPeakDot(ctx, x, y, color){
+  ctx.save();
+  ctx.lineWidth = 2;
+  ctx.fillStyle = color;
+  ctx.strokeStyle = '#ffffff';
+  ctx.beginPath(); ctx.arc(x,y,5,0,Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
+
+/* =========================
+   GRAPH 1: CATEGORICAL STRIP (A vs B)
+   ========================= */
+function renderDistanceStrip(){
+  const W = stripCanvas.width, H = stripCanvas.height;
+  sctx.clearRect(0,0,W,H);
+  const M = {l:60,r:20,t:20,b:56};
+  const PW = W - M.l - M.r, PH = H - M.t - M.b;
+
+  const now = nowTs(), cutoff = now - WINDOW_SEC;
+  const arrA = state[0].data.filter(p=>p.ts>=cutoff && typeof p.value==='number');
+  const arrB = state[1].data.filter(p=>p.ts>=cutoff && typeof p.value==='number');
+
+  const allVals = [];
+  if (visible.a) allVals.push(...arrA.map(p=>p.value));
+  if (visible.b) allVals.push(...arrB.map(p=>p.value));
+  const fallbackMax = (CONFIG.buzzerThresholdCm*2) || 100;
+  const yMinRaw = allVals.length ? Math.min(...allVals) : 0;
+  const yMaxRaw = allVals.length ? Math.max(...allVals) : fallbackMax;
+  const pad = Math.max(1,(yMaxRaw-yMinRaw)*0.2);
+  const yMin = Math.max(0, yMinRaw - pad);
+  const yMax = yMaxRaw + pad || 1;
+
+  drawYGrid(sctx, M,PW,PH, yMin,yMax, 'cm');
+
+  const xA = M.l + PW * 0.33;
+  const xB = M.l + PW * 0.67;
+  const jitterAmp = Math.max(6, PW*0.04);
+
+  if (visible.a){
+    sctx.save(); sctx.fillStyle = COLORS.a; sctx.globalAlpha = 0.9;
+    for (const p of arrA){
+      const x = xA + jitterFor(p.ts+17, jitterAmp);
+      const y = M.t + map(p.value, yMax, yMin, 0, PH);
+      sctx.beginPath(); sctx.arc(x,y,3,0,Math.PI*2); sctx.fill();
+    }
+    sctx.restore();
+  }
+  if (visible.b){
+    sctx.save(); sctx.fillStyle = COLORS.b; sctx.globalAlpha = 0.9;
+    for (const p of arrB){
+      const x = xB + jitterFor(p.ts+29, jitterAmp);
+      const y = M.t + map(p.value, yMax, yMin, 0, PH);
+      sctx.beginPath(); sctx.arc(x,y,3,0,Math.PI*2); sctx.fill();
+    }
+    sctx.restore();
+  }
+
+  sctx.save();
+  sctx.setLineDash([6,6]); sctx.strokeStyle = '#e67e22';
+  const yTh = M.t + map(CONFIG.buzzerThresholdCm, yMax, yMin, 0, PH);
+  sctx.beginPath(); sctx.moveTo(M.l, yTh); sctx.lineTo(M.l+PW, yTh); sctx.stroke();
+  sctx.restore();
+
+  sctx.fillStyle = '#a9a9a9'; sctx.font = '12px system-ui,-apple-system,Segoe UI,Roboto,Arial';
+  sctx.textAlign = 'center';
+  sctx.fillText('Sensor A', xA, M.t + PH + 24);
+  sctx.fillText('Sensor B', xB, M.t + PH + 24);
+  sctx.fillText('Sensors',  M.l + PW/2, M.t + PH + 40);
+}
+
+/* =========================
+   GRAPH 2: DHT LINE (Temp + Humidity) + PEAK MARKERS
+   ========================= */
+function renderDHTChart(){
+  const W = dhtCanvas.width, H = dhtCanvas.height;
+  dctx.clearRect(0,0,W,H);
+  const M = {l:60,r:48,t:20,b:42};
+  const PW = W - M.l - M.r, PH = H - M.t - M.b;
+
+  const now = nowTs(), tMin = now - WINDOW_SEC, tMax = now;
+  const ptsT = dhtState.t.filter(p=>p.ts>=tMin);
+  const ptsH = dhtState.h.filter(p=>p.ts>=tMin);
+
+  // temp auto-range
+  const tVals = ptsT.map(p=>p.value).filter(n=>typeof n==='number');
+  const tMinRaw = tVals.length ? Math.min(...tVals) : 0;
+  const tMaxRaw = tVals.length ? Math.max(...tVals) : 50;
+  const tPad = Math.max(0.5,(tMaxRaw-tMinRaw)*0.2);
+  const y1Min = Math.max(0,tMinRaw - tPad);
+  const y1Max = tMaxRaw + tPad || 1;
+
+  drawYGrid(dctx, M,PW,PH, y1Min,y1Max, '°C / %');
+
+  // vertical time grid + x ticks + x label
+  dctx.setLineDash([3,4]); dctx.strokeStyle='#222';
+  for(let i=0;i<=5;i++){
+    const tx = M.l + map(lerp(tMin,tMax,i/5), tMin, tMax, 0, PW);
+    dctx.beginPath(); dctx.moveTo(tx, M.t); dctx.lineTo(tx, M.t+PH); dctx.stroke();
+  }
+  dctx.setLineDash([]);
+
+  dctx.fillStyle='#a9a9a9'; dctx.font='12px system-ui,-apple-system,Segoe UI,Roboto,Arial';
+  dctx.textAlign='center';
+  for(let i=0;i<=5;i++){
+    const tt = Math.round(lerp(tMin,tMax,i/5));
+    const x  = M.l + map(tt, tMin, tMax, 0, PW);
+    dctx.fillText(new Date(tt*1000).toLocaleTimeString(), x, M.t+PH+20);
+  }
+  dctx.fillText('time →', M.l + PW - 36, M.t + PH + 36);
+
+  // right humidity ticks (0..100)
+  const y2Min = 0, y2Max = 100;
+  dctx.fillStyle='#a9a9a9'; dctx.textAlign='left';
+  for(let i=0;i<=5;i++){
+    const hv = lerp(y2Min,y2Max,i/5);
+    const y = M.t + map(hv, y2Max, y2Min, 0, PH);
+    dctx.fillText(String(Math.round(hv)), M.l+PW+8, y+4);
+  }
+  dctx.strokeStyle='#2a2a2a'; dctx.beginPath(); dctx.moveTo(M.l+PW, M.t); dctx.lineTo(M.l+PW, M.t+PH); dctx.stroke();
+
+  // plot temp
+  if (visible.t){
+    const pts = ptsT.map(p=>({ts:p.ts, v:p.value}));
+    plotLineWithScale(dctx, pts, COLORS.t, M,PW,PH,tMin,tMax,y1Min,y1Max);
+  }
+  // plot humidity
+  if (visible.h){
+    dctx.lineWidth=2; dctx.strokeStyle=COLORS.h; dctx.beginPath(); let started=false;
+    for (const p of ptsH){
+      if (typeof p.value!=='number') continue;
+      const x = M.l + map(p.ts, tMin, tMax, 0, PW);
+      const y = M.t + map(p.value, y2Max, y2Min, 0, PH);
+      if (!started){ dctx.moveTo(x,y); started=true; } else dctx.lineTo(x,y);
+    }
+    if (started) dctx.stroke();
+  }
+
+  /* peak markers (last 60s) */
+  const pt = peakOf(dhtState.t.filter(p=>p.ts>=tMin)); // peak temp
+  if (visible.t && pt && typeof pt.value==='number'){
+    const x = M.l + map(pt.ts, tMin, tMax, 0, PW);
+    const y = M.t + map(pt.value, y1Max, y1Min, 0, PH);
+    drawPeakDot(dctx, x, y, COLORS.t);
+  }
+  const ph = peakOf(dhtState.h.filter(p=>p.ts>=tMin)); // peak humidity
+  if (visible.h && ph && typeof ph.value==='number'){
+    const x = M.l + map(ph.ts, tMin, tMax, 0, PW);
+    const y = M.t + map(ph.value, y2Max, y2Min, 0, PH);
+    drawPeakDot(dctx, x, y, COLORS.h);
+  }
+}
+
+/* =========================
+   BUZZER
+   ========================= */
+function updateBuzzer(distA, distB){
+  const isNum = v => typeof v==='number' && Number.isFinite(v);
+  const aOK=isNum(distA), bOK=isNum(distB);
+  const showVal = aOK ? distA : (bOK ? distB : null);
+  buzzValEl.textContent = isNum(showVal) ? showVal.toFixed(2)+' cm' : '--.-- cm';
+  const ring = (aOK && distA >= CONFIG.buzzerThresholdCm) || (bOK && distB >= CONFIG.buzzerThresholdCm);
+  buzzerEl.classList.toggle('buzzer-on',  ring);
+  buzzerEl.classList.toggle('buzzer-off', !ring);
+}
+
+/* =========================
+   TOGGLES
+   ========================= */
+function wireToggles(){
+  COLORS.a = getCSS('--accentA') || COLORS.a;
+  COLORS.b = getCSS('--accentB') || COLORS.b;
+  COLORS.t = getCSS('--accentT') || COLORS.t;
+  COLORS.h = getCSS('--accentH') || COLORS.h;
+
+  if (!togglesEl) return;
+  togglesEl.querySelectorAll('.toggle').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const key = btn.dataset.series; // 'a' | 'b' | 't' | 'h'
+      visible[key] = !visible[key];
+      btn.classList.toggle('active', visible[key]);
+      renderDistanceStrip();
+      updateDHTPeaks();
+      renderDHTChart();
+    });
+  });
+}
+
+/* =========================
+   LIFECYCLE
+   ========================= */
+let dhtTimer = null;
+
+async function start(){
+  setBadge(elOverall,'warn','connecting…');
+  wireToggles();
+  pollLoop();
+  pollDHT();
+  dhtTimer = setInterval(pollDHT, CONFIG.dht.intervalMs);
+}
+
+function stop(){
+  if (dhtTimer) clearInterval(dhtTimer);
+  if (loopHandle) { clearTimeout(loopHandle); loopHandle = null; }
+}
+
+window.addEventListener('load', start);
+window.addEventListener('beforeunload', stop);
+</script>
 </body>
 </html>

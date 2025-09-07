@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   // ===== Settings =====
   const UPDATE_MS = 5000; // live update cadence
-  const API_URL = 'http://192.168.1.48:5000/api/dht';
+  const API_URL = 'http://192.168.43.185:5000/api/dht';
   const STORAGE_KEY = 'sensor_readings'; // localStorage key
   const MAX_DAYS_KEEP = 7;               // trim older than N days
 
