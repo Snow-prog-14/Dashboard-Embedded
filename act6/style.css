@@ -1,0 +1,146 @@
+:root{
+  --bg:#0f1013; --bg-soft:rgba(255,255,255,.045);
+  --card:#14161b; --border:#232731;
+  --text:#e9ecf1; --muted:#9aa3ad;
+  --accent:#7b83ff; --accent-2:#41d9bd; --good:#2ecc71;
+  --shadow:0 10px 24px rgba(0,0,0,.30);
+  /* Sizes */
+  --map-h: 320px;
+  --chart-h: 160px;
+  --chart-h-small: 150px;
+}
+
+:root.light{
+  --bg:#f7f8fb; --bg-soft:rgba(0,0,0,.035);
+  --card:#ffffff; --border:#e9edf3;
+  --text:#0f141c; --muted:#5a6573;
+  --accent:#586bff; --accent-2:#18b99b; --good:#16a34a;
+  --shadow:0 8px 18px rgba(0,0,0,.06);
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; color:var(--text); font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  background:
+    radial-gradient(900px 420px at 15% -10%, rgba(120,140,255,.16), transparent 60%),
+    radial-gradient(760px 360px at 90% -8%, rgba(30,200,170,.14), transparent 60%),
+    var(--bg);
+}
+
+/* Topbar */
+.topbar{
+  position:sticky; top:0; z-index:50;
+  display:flex; align-items:center; justify-content:space-between; gap:14px;
+  padding:10px 14px; background:color-mix(in srgb, var(--card) 78%, transparent);
+  backdrop-filter: blur(8px); border-bottom:1px solid var(--border);
+}
+.brand{display:flex; align-items:center; gap:10px}
+.brand .dot{width:9px;height:9px;border-radius:50%;background:var(--accent-2);box-shadow:0 0 10px var(--accent-2)}
+.topbar h1{margin:0;font-size:17px;font-weight:600}
+
+.actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{
+  border:1px solid var(--border); background:var(--bg-soft); color:var(--text);
+  padding:6px 10px; border-radius:10px; cursor:pointer; transition:.15s transform;
+}
+.btn:hover{transform:translateY(-1px)}
+.btn:disabled{opacity:.55; cursor:not-allowed}
+.btn.primary{background:linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #000 30%)); border-color:transparent; color:#fff}
+.divider{width:1px;height:24px;background:var(--border);margin:0 2px}
+
+.field{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+select, .input{
+  height:32px;border-radius:8px;padding:0 8px;border:1px solid var(--border);background:var(--card);color:var(--text);
+}
+.input{width:260px}
+
+.wrap{padding:14px}
+.grid{display:grid; gap:16px; grid-template-columns: repeat(12, 1fr)}
+
+.card{
+  background:color-mix(in srgb, var(--card) 90%, transparent);
+  border:1px solid var(--border); border-radius:14px; padding:12px; box-shadow:var(--shadow);
+}
+.card-head{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px}
+.card h2{margin:0;font-size:15px}
+.hint{color:var(--muted); font-size:12px}
+
+/* KPIs */
+.kpis{grid-column: span 12; display:grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap:8px}
+.kpi{display:flex; flex-direction:column; gap:3px; padding:8px; border:1px dashed var(--border); border-radius:10px}
+.kpi-label{color:var(--muted); font-size:11px}
+.kpi-value{font-size:17px; font-weight:600}
+.kpi-muted{color:var(--muted)}
+.kpi-chip{display:inline-flex;align-items:center;justify-content:center;padding:5px 8px;border-radius:999px;border:1px solid var(--border);background:var(--bg-soft);min-width:56px}
+.kpi-chip.good{border-color:color-mix(in srgb, var(--good) 30%, var(--border));}
+
+/* Layout + sizes */
+.map-card{grid-column: span 7}
+.chart-card{grid-column: span 5}
+.third-card{grid-column: span 4}
+
+/* Map */
+#map{width:100%; height:var(--map-h); border-radius:12px; overflow:hidden}
+
+/* Charts: fill the card exactly */
+.canvas-wrap{position:relative; width:100%; height:auto; min-height:120px}
+/* keep small variant for the 3-acce cards */
+.canvas-wrap.small{min-height: var(--chart-h-small)}
+.canvas-wrap canvas{
+  position:absolute; inset:0;          /* fill the wrap */
+  display:block;
+  width:100% !important;
+  height:100% !important;
+  max-width:none !important;
+  aspect-ratio:auto;
+}
+
+/* Make chart cards (and accel cards) a two-row grid:
+   [header][chart grows to fill] */
+.card.chart-card,
+.card.third-card{
+  display:grid;
+  grid-template-rows:auto 1fr;
+}
+
+/* First row: map + GPS accuracy share a row;
+   the GPS accuracy chart now expands to match the map height. */
+.map-card{grid-column: span 7}
+.chart-card{grid-column: span 5}
+
+/* Optional: a touch more room for the 3 accel cards on large screens */
+.third-card{grid-column: span 4}
+
+
+/* Switch */
+.switch{display:flex; align-items:center; gap:8px; user-select:none}
+.switch input{accent-color:var(--accent)}
+
+/* Toast + footer */
+.toast{
+  position:fixed; left:50%; bottom:20px; transform:translateX(-50%);
+  background:color-mix(in srgb, var(--card) 92%, transparent);
+  border:1px solid var(--border); color:var(--text);
+  padding:8px 12px; border-radius:10px; box-shadow:var(--shadow);
+  opacity:0; pointer-events:none; transition:.2s opacity, .2s transform;
+}
+.toast.show{opacity:1; transform:translate(-50%, -4px)}
+.foot{padding:12px 14px; color:var(--muted); border-top:1px solid var(--border)}
+
+/* Responsive */
+@media (max-width: 1200px){
+  .map-card{grid-column: span 12}
+  .chart-card{grid-column: span 12}
+  .third-card{grid-column: span 4}
+  :root{ --map-h: 300px; --chart-h: 150px; --chart-h-small: 140px; }
+  .kpis{grid-template-columns: repeat(3, minmax(0,1fr))}
+}
+@media (max-width: 900px){
+  .third-card{grid-column: span 12}
+  :root{ --map-h: 280px; --chart-h: 150px; --chart-h-small: 150px; }
+}
+@media (max-width: 680px){
+  .kpis{grid-template-columns: repeat(2, minmax(0,1fr))}
+  .input{width:210px}
+}
