@@ -2,82 +2,58 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Gas & Vibration Monitor — Dummy Data</title>
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gas & Vibration Monitor</title>
+
+  <!-- Chart.js + time adapter -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="wrap">
     <div class="hdr">
       <h1>Gas & Vibration Monitor</h1>
-      <nav>
-        <button id="tabRealtime">Realtime</button>
-        <button id="tabHistory">History</button>
-        <button id="tabSettings">Settings</button>
-      </nav>
+      <div class="row">
+        <span class="badge">Update: <span id="updSec">2s</span></span>
+        <span class="badge">Saved: <span id="recCount">0</span></span>
+        <button id="btnCSV">Export CSV</button>
+        <button id="btnClear">Clear Logs</button>
+      </div>
     </div>
 
-    <!-- Realtime -->
-    <section id="viewRealtime" class="card">
-      <div class="row">
-        <h3 style="margin:0">Realtime Dashboard</h3>
-        <span class="badge">Update: <span id="updSec">2s</span></span>
+    <div class="card">
+      <h3 style="margin:0">Realtime Charts</h3>
+      <div class="split">
+        <canvas id="gasChart"></canvas>
+        <canvas id="vibChart"></canvas>
       </div>
 
-      <div class="card" style="margin-top:12px">
-        <div class="row">
-          <h4 style="margin:0">Live Data</h4>
-          <div style="display:flex;align-items:center;gap:8px">
-            <span style="color:#ff6b8b;font-weight:600;border:2px solid #ff6b8b;padding:2px 8px;border-radius:10px">Gas (ppm)</span>
-            <span style="color:#4ea1ff;font-weight:600;border:2px solid #4ea1ff;padding:2px 8px;border-radius:10px">Vibration RMS</span>
+      <!-- last-minute stats -->
+      <div class="mini-summary">
+        <div>
+          <div class="mini-title">Gas (last 1 min)</div>
+          <div class="mini-value"><span id="gasAvgMin">—</span> ppm</div>
+        </div>
+        <div>
+          <div class="mini-title">Vibration (last 1 min)</div>
+          <div class="mini-value">
+            <span id="vibPctOn">—</span>% ON • <span id="vibTrend">—</span>
           </div>
         </div>
-        <canvas id="liveChart" height="200"></canvas>
       </div>
+    </div>
 
-      <div class="card">
-        <h4 style="margin:0 0 8px">Latest Reading</h4>
-        <div class="kv">
-          <label>Timestamp</label><div id="lastTs">—</div>
-          <label>Gas (ppm)</label><div id="lastGas">—</div>
-          <label>Vibration RMS</label><div id="lastRMS">—</div>
-          <label>Vibration Peak</label><div id="lastPeak">—</div>
-          <label>Status</label><div id="lastStatus">—</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- History -->
-    <section id="viewHistory" class="card" style="display:none">
-      <div class="row">
-        <h3 style="margin:0">Historical Data</h3>
-        <div style="display:flex;align-items:center;gap:8px">
-          <span>Show last</span>
-          <input id="histLastMin" type="number" min="1" value="30" style="width:88px;text-align:center"> <span>min</span>
-        </div>
-      </div>
-
-      <div class="card" style="margin-top:12px">
-        <canvas id="histChart" height="200"></canvas>
-      </div>
-    </section>
-
-    <!-- Settings -->
-    <section id="viewSettings" class="card" style="display:none">
-      <h3 style="margin-top:0">Settings</h3>
+    <div class="card">
+      <h3 style="margin:0 0 8px">Latest Reading</h3>
       <div class="kv">
-        <label>Update Interval (ms)</label><input id="setInterval" type="number" value="2000">
-        <label>Gas WARN (ppm)</label><input id="setGasWarn" type="number" value="400">
-        <label>Gas ALERT (ppm)</label><input id="setGasAlert" type="number" value="800">
-        <label>Vib WARN (RMS)</label><input id="setVibWarn" type="number" step="0.001" value="0.06">
-        <label>Vib ALERT (RMS)</label><input id="setVibAlert" type="number" step="0.001" value="0.12">
+        <label>Timestamp</label><div id="lastTs">—</div>
+        <label>Gas (ppm)</label><div id="lastGas">—</div>
+        <label>Vibration (digital)</label><div id="lastVib">—</div>
+        <label>Status</label><div id="lastStatus">—</div>
       </div>
-    </section>
+    </div>
   </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
   <script src="script.js"></script>
 </body>
 </html>

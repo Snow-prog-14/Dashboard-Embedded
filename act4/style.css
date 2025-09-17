@@ -1,18 +1,41 @@
-:root {
+:root{
   --bg:#0f0f0f; --card:#171717; --text:#f2f2f2; --muted:#a0a0a0;
   --pink:#ff6b8b; --blue:#4ea1ff; --grid:#202020; --axis:#7a7a7a;
 }
-* { box-sizing:border-box }
-body { margin:0; background:var(--bg); color:var(--text); font:16px/1.45 system-ui,Segoe UI,Roboto }
-.wrap { max-width:1200px; margin:auto; padding:20px }
-.hdr { display:flex; justify-content:space-between; align-items:center }
-.card { background:var(--card); border-radius:16px; padding:16px; margin-top:16px }
-.kv { display:grid; grid-template-columns:160px 1fr; row-gap:6px }
-label { color:var(--muted) }
-.badge { background:#000000cc; padding:6px 10px; border-radius:12px; font-size:12px }
-.ok { color:#a5d6a7 } .warn { color:#ffd54f } .alert { color:#ef9a9a }
 
-canvas {
-  max-width: 100%;
-  height: 300px !important; /* smaller fixed height */
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,Segoe UI,Roboto}
+
+.wrap{max-width:1200px;margin:auto;padding:20px}
+.hdr{display:flex;justify-content:space-between;align-items:center}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+
+.card{background:var(--card);border-radius:16px;padding:16px;margin-top:16px}
+
+.split{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:stretch}
+@media(max-width:900px){.split{grid-template-columns:1fr}}
+
+.kv{display:grid;grid-template-columns:160px 1fr;row-gap:6px}
+label{color:var(--muted)}
+
+.badge{background:#000000cc;padding:6px 10px;border-radius:12px;font-size:12px}
+.ok{color:#a5d6a7}.warn{color:#ffd54f}.alert{color:#ef9a9a}
+
+canvas{max-width:100%;height:260px!important}
+button{background:#2a2a2a;border:1px solid #3a3a3a;color:#eaeaea;padding:6px 10px;border-radius:8px;cursor:pointer}
+button:hover{background:#333}
+
+/* last-minute stats under charts */
+.mini-summary{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:16px;
+  margin-top:12px;
+  padding-top:12px;
+  border-top:1px solid #2a2a2a;
+}
+.mini-title{ color:var(--muted); font-size:13px; }
+.mini-value{ font-size:18px; font-weight:600; }
+@media(max-width:900px){
+  .mini-summary{ grid-template-columns:1fr; }
 }
