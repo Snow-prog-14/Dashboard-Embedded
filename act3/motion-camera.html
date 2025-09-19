@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Motion + Temperature Monitor</title>
+
+  <!-- Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Chart.js (must load before app.js) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- App Bar -->
+  <header class="appbar">
+    <div class="brand">
+      <div class="logo">MM</div>
+      <div class="brand-text">
+        <strong>Motion Monitor</strong>
+        <span>Webcam • PIR • DHT11</span>
+      </div>
+    </div>
+    <div class="appbar-actions">
+      <button id="themeToggle" class="btn btn--ghost" title="Toggle theme">🌓 Theme</button>
+    </div>
+  </header>
+
+  <div class="page">
+    <!-- Status -->
+    <div class="status-bar panel">
+      <div class="pill">Status: <b id="status">Idle</b></div>
+      <div class="pill">Events: <b id="eventCount">0</b></div>
+      <div class="pill">Captures: <b id="capCount">0</b></div>
+      <div class="pill">FPS: <b id="fps">0</b></div>
+      <div class="pill">Last update: <b id="lastUpd">—</b></div>
+    </div>
+
+    <!-- Top row -->
+    <div class="row-top">
+      <!-- Webcam -->
+      <div class="panel">
+        <div class="panel-title">Webcam</div>
+        <div class="video-wrap">
+          <video id="video" autoplay playsinline muted></video>
+        </div>
+        <p class="muted" style="margin:8px 2px 0">
+          Tip: webcam requires <b>https</b> or <b>localhost</b>.
+        </p>
+      </div>
+
+      <!-- Controls -->
+      <div class="panel">
+        <div class="panel-title">Controls</div>
+
+        <div class="btn-row">
+          <button id="btnStart" class="btn btn--primary">Start Monitoring</button>
+          <button id="btnStop" class="btn" disabled>Stop</button>
+          <label class="toggle">
+            <input type="checkbox" id="enableWebcam" checked />
+            <span class="control"></span><span class="label">Webcam</span>
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="enablePIR" />
+            <span class="control"></span><span class="label">PIR (from API)</span>
+          </label>
+        </div>
+
+        <div class="cols-2">
+          <div class="group">
+            <label class="group-label">Motion Threshold</label>
+            <input type="range" id="thresh" min="0.02" max="0.30" step="0.01" value="0.10" />
+            <div class="muted">Current: <b id="threshVal">0.10</b></div>
+          </div>
+
+          <div class="group">
+            <label class="group-label">PIR Poll Interval (ms)</label>
+            <input class="input" type="number" id="pollMs" min="250" step="250" value="1000" />
+          </div>
+
+          <div class="group">
+            <label class="group-label">Live Window (minutes)</label>
+            <input class="input" type="number" id="winMin" min="1" step="1" value="5" />
+          </div>
+
+          <div class="group">
+            <label class="group-label">Max Captures</label>
+            <input class="input" type="number" id="maxCaps" min="5" step="5" value="30" />
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button id="btnClearCaps" class="btn btn--ghost">Clear Captures</button>
+          <button id="btnClearChart" class="btn btn--ghost">Clear Charts</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom row -->
+    <div class="row-bottom">
+      <div class="stack">
+        <div class="panel">
+          <div class="panel-title">Charts</div>
+          <div class="charts-2">
+            <div class="canvas-wrap"><canvas id="motionChart" width="560" height="300"></canvas></div>
+            <div class="canvas-wrap"><canvas id="tempChart"   width="560" height="300"></canvas></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">Captures</div>
+          <div id="caps" class="caps-grid"></div>
+        </div>
+      </div>
+
+      <div class="stack">
+        <div class="panel">
+          <div class="panel-title">Latest Snapshot</div>
+          <img id="snapshot" class="snapshot" alt="latest capture"/>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Event Log</div>
+          <ul id="log" class="log"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Offscreen canvas for frame diff -->
+  <canvas id="work" width="320" height="240" style="display:none"></canvas>
+
+  <!-- Lightbox -->
+  <div id="lightbox" class="lightbox hidden">
+    <img id="lightImg" alt="capture"/>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
