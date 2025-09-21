@@ -4,13 +4,17 @@ Chart.defaults.maintainAspectRatio = false;
 
 /* ========= Config ========= */
 const POLL_MS = 2000;                 // GPS API polling
-const DEFAULT_API_URL = 'http://192.168.1.50:5000/api/gps';
+const DEFAULT_API_URL = 'http://192.168.1.48:5000/api/gps';
 const USE_HAVERSINE = true;
 
 // Accel
 const ACC_API_MS = 40;                // ~25 Hz polling
-const DEFAULT_ACC_API = 'http://192.168.1.50:5000/api/acc';
+const DEFAULT_ACC_API = 'http://192.168.1.48:5000/api/acc';
 const ACC_DEMO_HZ = 50;               // 50 Hz simulated
+
+// Demo GPS (fallback) config
+const DEMO_STEP_M   = 1.6;            // meters per tick
+const DEMO_HEADING_JITTER = 12;       // degrees random walk
 
 /* ========= Elements ========= */
 const $ = s => document.querySelector(s);
@@ -45,13 +49,13 @@ let lastFix = null;
 
 let watchId = null;    // geolocation watcher
 let pollTimer = null;  // GPS API timer
+let demoTimer = null;  // GPS demo timer
 let autoCentered = false;
 
 let accTimer = null;   // accel demo/API timer
 let accCount = 0;
 
 // Speak toggle
-let speakUtterance = null;
 let isSpeaking = false;
 
 /* ========= Init ========= */
@@ -129,16 +133,46 @@ function init(){
   map.on('resize', kickResize);
 }
 
+/* ========= Helper: seed from current browser location ========= */
+function seedFromBrowserLocation() {
+  return new Promise((resolve) => {
+    if (!('geolocation' in navigator)) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 1000 }
+    );
+  });
+}
+
 /* ========= GPS tracking ========= */
 function startTracking(){
   btnStart.disabled = true; btnStop.disabled = false;
   path = []; lastFix = null; autoCentered = false;
   clearGpsAcc(); updateStats();
+  stopDemo(); // ensure no demo is running
 
   if (selSrc.value === 'geolocation') {
-    if (!('geolocation' in navigator)) { error('Geolocation not supported in this browser.'); stopTracking(); return; }
-    watchId = navigator.geolocation.watchPosition(onGeo, onGeoErr, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
-    info('Geolocation started.');
+    // Try to center/seed at current laptop location immediately
+    seedFromBrowserLocation().then((seed) => {
+      if (seed) {
+        marker.setLatLng([seed.lat, seed.lng]);
+        map.setView([seed.lat, seed.lng], 16);
+      }
+    });
+
+    if (!('geolocation' in navigator)) {
+      error('Geolocation not supported. Starting demo from your last known position if available.');
+      seedFromBrowserLocation().then((seed) => startDemo(seed));
+      return;
+    }
+
+    watchId = navigator.geolocation.watchPosition(onGeo, onGeoErr, {
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 1000
+    });
+    info('Geolocation started. If it fails, we will auto-switch to demo from your current location.');
   } else {
     pollTimer = setInterval(fetchFromApi, POLL_MS);
     fetchFromApi();
@@ -150,6 +184,7 @@ function stopTracking(){
   btnStart.disabled = false; btnStop.disabled = true;
   if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
   if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  stopDemo();
   info('Tracking stopped.');
 }
 
@@ -158,7 +193,22 @@ function onGeo(pos){
   const time = pos.timestamp || Date.now();
   ingestFix({ lat: latitude, lng: longitude, accuracy, time, speedMS: speed });
 }
-function onGeoErr(err){ error(`Geolocation error: ${err.message || err}`); }
+
+function onGeoErr(err){
+  // 1 = PERMISSION_DENIED, 2 = POSITION_UNAVAILABLE, 3 = TIMEOUT
+  const msg = {
+    1: 'Permission denied. Enable location in the browser/site settings.',
+    2: 'Position unavailable. Move closer to Wi-Fi or try again.',
+    3: 'Timed out. Retrying…'
+  }[err.code] || (err.message || String(err));
+  error(`Geolocation error: ${msg}`);
+
+  // Friendly fallback to demo seeded by current position
+  if (err.code === 1 || err.code === 2) {
+    info('Switching to demo seeded by your current location…');
+    seedFromBrowserLocation().then((seed) => startDemo(seed));
+  }
+}
 
 async function fetchFromApi(){
   try{
@@ -167,7 +217,7 @@ async function fetchFromApi(){
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const j = await res.json(); // { lat, lng, accuracy?, timestamp? }
-    const time = j.timestamp ? new Date(j.timestamp).getTime() : Date.now();
+    const time = j.timestamp ? toEpochMs(j.timestamp) : Date.now();
     ingestFix({ lat: Number(j.lat), lng: Number(j.lng), accuracy: j.accuracy ?? null, time });
   }catch(e){
     error(`API error: ${e.message}`);
@@ -235,6 +285,40 @@ function pushGpsAccuracy(label, meters){
   gpsAccChart.update();
 }
 function clearGpsAcc(){ gpsAccChart.data.labels = []; gpsAccChart.data.datasets[0].data = []; gpsAccChart.update(); }
+
+/* ========= GPS demo (fallback) ========= */
+let demoState = { lat: 14.5995, lng: 120.9842, heading: 45, accuracy: 8 };
+
+function startDemo(seed){
+  stopDemo();
+  if (seed && Number.isFinite(seed.lat) && Number.isFinite(seed.lng)) {
+    demoState.lat = seed.lat;
+    demoState.lng = seed.lng;
+  }
+  demoTimer = setInterval(() => {
+    // simple random walk
+    const rad = (demoState.heading * Math.PI) / 180;
+    const dLat = (DEMO_STEP_M * Math.cos(rad)) / 111_111;
+    const dLng = (DEMO_STEP_M * Math.sin(rad)) / (111_111 * Math.cos((demoState.lat * Math.PI) / 180));
+    demoState.lat += dLat;
+    demoState.lng += dLng;
+    demoState.heading += (Math.random() - 0.5) * DEMO_HEADING_JITTER;
+    demoState.accuracy = 6 + Math.random() * 8;
+
+    ingestFix({
+      lat: demoState.lat,
+      lng: demoState.lng,
+      accuracy: demoState.accuracy,
+      time: Date.now(),
+      speedMS: DEMO_STEP_M / (POLL_MS / 1000)
+    });
+  }, POLL_MS);
+  info('Demo GPS running (seeded from your current location when available).');
+}
+
+function stopDemo(){
+  if (demoTimer) { clearInterval(demoTimer); demoTimer = null; }
+}
 
 /* ========= Accelerometer ========= */
 function startACC(){
