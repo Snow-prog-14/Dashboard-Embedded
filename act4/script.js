@@ -5,7 +5,7 @@ Chart.defaults.plugins.title.color = '#ffffff';
 Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(0,0,0,0.92)';
 Chart.defaults.plugins.tooltip.borderColor = '#444';
 Chart.defaults.plugins.tooltip.borderWidth = 1;
-Chart.defaults.plugins.tooltip.cornerRadius = 8;
+Chart.defaults.plugins.tooltip.borderRadius = 8; // v4 key
 Chart.defaults.plugins.tooltip.padding = 10;
 Chart.defaults.plugins.tooltip.displayColors = false;
 Chart.defaults.plugins.tooltip.titleColor = '#fff';
@@ -22,14 +22,14 @@ Chart.defaults.plugins.tooltip.bodyFont  = { size:13 };
 })();
 
 // ---------- Config ----------
-const GAS_URL = 'http://192.168.43.185:5000/api/gas';
-const VIB_URL = 'http://192.168.43.185:5000/api/vibrate';
+const GAS_URL = 'http://172.100.8.77:5000/api/gas';        // <-- set your PI IP
+const VIB_URL = 'http://172.100.8.77:5000/api/vibrate';    // <-- set your PI IP
 
 const STORAGE_KEY = 'gv_records';
-const MAX_DAYS_KEEP = 7;       // keep logs for 7 days
-const WINDOW_MS = 60 * 1000;   // show last 60s in charts
-const TICK_MS   = 2000;        // poll cadence (ms)
-document.getElementById('updSec').textContent = (TICK_MS/1000) + 's';
+const MAX_DAYS_KEEP = 7;         // keep logs for 7 days
+const WINDOW_MS     = 60_000;    // show last 60s in charts
+const TICK_MS       = 500;       // alternate every 0.5s  (gas ↔ vib)
+document.getElementById('updSec').textContent = (1000/1000) + 's'; // overall 1s per endpoint
 
 // ---------- Helpers ----------
 const fmt = new Intl.DateTimeFormat(undefined, { dateStyle:'medium', timeStyle:'medium' });
@@ -43,7 +43,6 @@ function trimToWindow(dataset){
   const cut = Date.now() - WINDOW_MS;
   while (dataset.length && dataset[0].x < cut) dataset.shift();
 }
-
 function avgWindow(dataset){
   if (!dataset.length) return null;
   let s = 0;
@@ -65,7 +64,8 @@ function vibStatsWindow(dataset){
 function loadRecords(){ try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; } }
 function saveRecords(rows){
   localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
-  document.getElementById('recCount').textContent = String(rows.length);
+  const rc = document.getElementById('recCount');
+  if (rc) rc.textContent = String(rows.length);
 }
 function appendRecord(row){
   const rows = loadRecords();
@@ -88,8 +88,8 @@ function exportCSV(){
 }
 function clearLogs(){ localStorage.removeItem(STORAGE_KEY); saveRecords([]); }
 
-document.getElementById('btnCSV').addEventListener('click', exportCSV);
-document.getElementById('btnClear').addEventListener('click', clearLogs);
+const btnCSV = document.getElementById('btnCSV');  if (btnCSV) btnCSV.addEventListener('click', exportCSV);
+const btnClear = document.getElementById('btnClear'); if (btnClear) btnClear.addEventListener('click', clearLogs);
 saveRecords(loadRecords()); // counter on load
 
 // ---------- X axis config ----------
@@ -168,79 +168,95 @@ async function fetchJSON(url){
   if (!r.ok) throw new Error(url + ' → HTTP ' + r.status);
   return r.json();
 }
-
-// Normalize various possible response shapes from your Flask APIs
+// From your Flask API formats:
+// /api/gas → { gas_ppm, ts, voltage_v?, source? }
+// /api/vibrate → { vibration: bool, ts }
 function parseGas(json){
-  // accepts: {ppm} or {gas} or {gas_ppm} or {value}
-  const ppm = Number(json.ppm ?? json.gas_ppm ?? json.gas ?? json.value ?? 0);
-  const ts  = json.ts || json.timestamp || Date.now();
-  return { ppm, ts: typeof ts === 'number' ? ts : Date.parse(ts) || Date.now() };
+  const ppm = Number(json.gas_ppm ?? json.ppm ?? json.value ?? 0);
+  const ts  = typeof json.ts === 'number' ? json.ts : Date.parse(json.timestamp || Date.now());
+  return { ppm, ts: ts || Date.now() };
 }
 function parseVib(json){
-  // accepts: {value:0/1}, {trigger:bool}, {vibration:0/1}, etc.
-  let raw = json.value ?? json.vibration ?? json.vib ?? json.trigger ?? json.digital ?? 0;
+  let raw = json.vibration ?? json.value ?? json.vib ?? json.trigger ?? json.digital ?? 0;
   if (typeof raw === 'boolean') raw = raw ? 1 : 0;
   const digital = Number(raw) ? 1 : 0;
-  const ts = json.ts || json.timestamp || Date.now();
-  return { digital, ts: typeof ts === 'number' ? ts : Date.parse(ts) || Date.now() };
+  const ts = typeof json.ts === 'number' ? json.ts : Date.parse(json.timestamp || Date.now());
+  return { digital, ts: ts || Date.now() };
 }
 
-async function fetchLatest(){
-  // Fetch both endpoints in parallel
-  const [gJ, vJ] = await Promise.all([ fetchJSON(GAS_URL), fetchJSON(VIB_URL) ]);
-  const g = parseGas(gJ);
-  const v = parseVib(vJ);
-  // Pick a common timestamp (prefer server time if provided)
-  const now = Math.max(g.ts || 0, v.ts || 0) || Date.now();
-  return { now, gasPPM: g.ppm, vibDigital: v.digital };
-}
+// ---------- Live alternating polling ----------
+let turnIsGas = true;                      // toggle each 500ms
+let lastGasPPM = 0;
+let lastVibDigital = 0;
+let lastTs = Date.now();
 
-// ---------- Live loop ----------
 async function tick(){
   try{
-    const { now, gasPPM, vibDigital } = await fetchLatest();
+    if (turnIsGas){
+      // Poll GAS (every 1s overall)
+      const gJ = await fetchJSON(GAS_URL);
+      const g  = parseGas(gJ);
+      lastGasPPM = g.ppm;
+      lastTs = g.ts;
 
-    // push to charts
-    gasChart.data.datasets[0].data.push({ x: now, y: gasPPM });
-    vibChart.data.datasets[0].data.push({ x: now, y: vibDigital });
+      gasChart.data.datasets[0].data.push({ x: g.ts, y: g.ppm });
+      trimToWindow(gasChart.data.datasets[0].data);
+      setTimeWindow(gasChart, g.ts);
+      gasChart.update('none');
 
-    // keep only last 60s in charts
-    trimToWindow(gasChart.data.datasets[0].data);
-    trimToWindow(vibChart.data.datasets[0].data);
-    setTimeWindow(gasChart, now);
-    setTimeWindow(vibChart, now);
+    } else {
+      // Poll VIB (every 1s overall)
+      const vJ = await fetchJSON(VIB_URL);
+      const v  = parseVib(vJ);
+      lastVibDigital = v.digital;
+      lastTs = v.ts;
 
-    gasChart.update('none');
-    vibChart.update('none');
+      vibChart.data.datasets[0].data.push({ x: v.ts, y: v.digital });
+      trimToWindow(vibChart.data.datasets[0].data);
+      setTimeWindow(vibChart, v.ts);
+      vibChart.update('none');
+    }
 
-    // latest panel
-    document.getElementById('lastTs').textContent  = fmtStamp(now);
-    document.getElementById('lastGas').textContent = Math.round(gasPPM);
-    document.getElementById('lastVib').textContent = vibDigital;
+    // Update latest panel using the freshest timestamp we have
+    const now = lastTs;
+    const elTs  = document.getElementById('lastTs');
+    const elGas = document.getElementById('lastGas');
+    const elVib = document.getElementById('lastVib');
+    if (elTs)  elTs.textContent  = fmtStamp(now);
+    if (elGas) elGas.textContent = Math.round(lastGasPPM);
+    if (elVib) elVib.textContent = lastVibDigital;
 
-    // status
+    // Status
     let status='OK', cls='ok';
-    if (gasPPM > 800) { status='GAS ALERT'; cls='alert'; }
-    else if (gasPPM > 400) { status='GAS WARN'; cls='warn'; }
-    if (vibDigital > 0) { status += (status==='OK'?'':' • ') + 'VIBRATION'; cls = (cls==='alert'?'alert':'warn'); }
-    const el = document.getElementById('lastStatus'); el.textContent = status; el.className = cls;
+    if (lastGasPPM > 800) { status='GAS ALERT'; cls='alert'; }
+    else if (lastGasPPM > 400) { status='GAS WARN'; cls='warn'; }
+    if (lastVibDigital > 0) { status += (status==='OK'?'':' • ') + 'VIBRATION'; cls = (cls==='alert'?'alert':'warn'); }
+    const elStatus = document.getElementById('lastStatus');
+    if (elStatus){ elStatus.textContent = status; elStatus.className = cls; }
 
-    // record
-    appendRecord({ ts: now, gas_ppm: Math.round(gasPPM), vibration_digital: vibDigital, status });
+    // Record (log every 500ms with the latest combined values)
+    appendRecord({ ts: now, gas_ppm: Math.round(lastGasPPM), vibration_digital: lastVibDigital, status });
 
-    // last-minute summaries
+    // Last-minute summaries
     const gasAvg = avgWindow(gasChart.data.datasets[0].data);
-    document.getElementById('gasAvgMin').textContent = gasAvg !== null ? Math.round(gasAvg) : '—';
-    const { pctOn, trend } = vibStatsWindow(vibChart.data.datasets[0].data);
-    document.getElementById('vibPctOn').textContent = pctOn.toFixed(0);
-    document.getElementById('vibTrend').textContent = trend;
+    const gasAvgEl = document.getElementById('gasAvgMin');
+    if (gasAvgEl) gasAvgEl.textContent = gasAvg !== null ? Math.round(gasAvg) : '—';
 
-  }catch(err){
-    console.warn('tick() fetch failed:', err);
-    // (keeps last values on transient failures)
+    const { pctOn, trend } = vibStatsWindow(vibChart.data.datasets[0].data);
+    const vibPctOn = document.getElementById('vibPctOn');
+    const vibTrend = document.getElementById('vibTrend');
+    if (vibPctOn) vibPctOn.textContent = pctOn.toFixed(0);
+    if (vibTrend) vibTrend.textContent = trend;
+
+  } catch(err){
+    console.warn('tick() failed:', err);
+    // keep previous values; no UI throw
+  } finally {
+    // Flip turn
+    turnIsGas = !turnIsGas;
   }
 }
 
-// start loop
+// Kick off
 tick();
 setInterval(tick, TICK_MS);
