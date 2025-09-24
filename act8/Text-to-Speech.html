@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Multilingual TTS Minibot</title>
+  <link rel="stylesheet" href="./styles.css">
+  <!-- meSpeak for downloadable WAV generation -->
+  <script src="https://cdn.jsdelivr.net/npm/mespeak/mespeak.min.js"></script>
+  <script defer src="./app.js"></script>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand"><span class="dot"></span><h1>Multilingual TTS Minibot</h1></div>
+      <span class="pill"><span id="apiDot" class="status-dot" style="background:#999"></span><span id="apiLabel">Checking Web Speech API…</span></span>
+    </header>
+
+    <div class="grid">
+      <!-- Left: Composer -->
+      <section class="card">
+        <label for="text">Text</label>
+        <textarea id="text" placeholder="Type what to speak…"></textarea>
+        <div class="hint" id="charHint">0 characters</div>
+
+        <div class="row" style="margin-top:12px">
+          <div>
+            <label for="lang">Language</label>
+            <select id="lang"></select>
+            <div class="hint">Filters the voice list below.</div>
+          </div>
+          <div>
+            <label for="voice">Voice</label>
+            <select id="voice"></select>
+            <div class="hint">Use “Refresh voices” if empty.</div>
+          </div>
+        </div>
+
+        <div class="row3" style="margin-top:12px">
+          <div>
+            <label for="rate">Rate <span class="hint" id="rateVal">1.0×</span></label>
+            <input type="range" id="rate" min="0.5" max="2" step="0.1" value="1" />
+          </div>
+          <div>
+            <label for="pitch">Pitch <span class="hint" id="pitchVal">1.0</span></label>
+            <input type="range" id="pitch" min="0" max="2" step="0.1" value="1" />
+          </div>
+          <div>
+            <label for="volume">Volume <span class="hint" id="volVal">100%</span></label>
+            <input type="range" id="volume" min="0" max="1" step="0.05" value="1" />
+          </div>
+        </div>
+
+        
+
+        <div class="btns" style="margin-top:14px">
+          <button class="primary" id="speakBtn">Speak</button>
+          <button class="good" id="pauseBtn">Pause</button>
+          <button class="warn" id="resumeBtn">Resume</button>
+          <button class="bad" id="stopBtn">Stop</button>
+          <button id="refreshBtn">Refresh voices</button>
+          <button id="sampleBtn" class="muted">Insert sample</button>
+          <button id="clearBtn" class="muted">Clear</button>
+            <button id="micBtn" title="Start voice input">🎙️ Voice Input</button>
+            
+        </div>
+        
+        
+
+        <div class="btns" style="margin-top:6px">
+          <button id="downloadBtn">Download WAV</button>
+        </div>
+
+        <div class="kpis">
+          <div class="kpi"><div class="label">State</div><div id="stateVal" class="value">idle</div></div>
+          <div class="kpi"><div class="label">Selected lang</div><div id="langVal" class="value">—</div></div>
+          <div class="kpi"><div class="label">Selected voice</div><div id="voiceVal" class="value">—</div></div>
+          <div class="kpi"><div class="label">Queue</div><div id="queueVal" class="value">0</div></div>
+        </div>
+
+        <div class="footer">Tip: This uses your browser's built-in <strong>SpeechSynthesis</strong> voices. Availability varies by OS/browser.</div>
+      </section>
+
+      <!-- Right: History / Help -->
+      <aside class="card">
+        <label>Utterance history</label>
+        <div id="history" class="hint" style="max-height:420px;overflow:auto"></div>
+        <hr style="border:0;border-top:1px solid var(--border);margin:14px 0">
+        <label>Notes</label>
+        <ul class="hint" style="margin-top:6px;line-height:1.6">
+          <li>If the voice list is empty, click <em>Refresh voices</em> (browsers often load voices asynchronously).</li>
+          <li>Language filter matches the voice <code>lang</code> code (e.g., <code>en-US</code>, <code>fil-PH</code>, <code>ja-JP</code>).</li>
+          <li>"Stop" clears the queue; "Pause/Resume" controls the current utterance.</li>
+          <li>Settings persist locally in your browser.</li>
+        </ul>
+      </aside>
+    </div>
+  </div>
+</body>
+</html>
