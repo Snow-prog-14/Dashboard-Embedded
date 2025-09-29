@@ -7,12 +7,23 @@
 
 *{box-sizing:border-box}
 html,body{height:100%}
-body{margin:0;background:linear-gradient(180deg,var(--bg),#0a0c12);color:var(--text);font:14px/1.55 ui-sans-serif,system-ui,Segoe UI,Roboto,Arial,sans-serif}
+body{
+  margin:0;
+  background:linear-gradient(180deg,var(--bg),#0a0c12);
+  color:var(--text);
+  font:14px/1.55 ui-sans-serif,system-ui,Segoe UI,Roboto,Arial,sans-serif;
+}
 .muted{color:var(--muted)}
 .small{font-size:12px}
 
 /* Topbar */
-.topbar{position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border);background:color-mix(in srgb, var(--bg) 94%, transparent);backdrop-filter:blur(6px)}
+.topbar{
+  position:sticky;top:0;z-index:20;
+  display:flex;justify-content:space-between;align-items:center;
+  padding:14px 18px;border-bottom:1px solid var(--border);
+  background:color-mix(in srgb, var(--bg) 94%, transparent);
+  backdrop-filter:blur(6px)
+}
 .brand{display:flex;gap:12px;align-items:center}
 .mark{width:12px;height:12px;border-radius:50%;background:var(--accent);box-shadow:0 0 14px var(--accent)}
 .titles h1{margin:0;font-size:18px;font-weight:700}
@@ -24,6 +35,7 @@ body{margin:0;background:linear-gradient(180deg,var(--bg),#0a0c12);color:var(--t
 .group{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
 .sep{width:1px;height:28px;background:var(--border)}
 .field{display:flex;align-items:center;gap:8px}
+.field label{white-space:nowrap}
 .input{display:flex;align-items:center;border:1px solid var(--border);border-radius:9px;overflow:hidden}
 .input input{all:unset;padding:6px 8px;min-width:70px}
 .unit{border-left:1px solid var(--border);padding:0 8px;color:var(--muted);font-size:12px}
@@ -43,8 +55,10 @@ select{background:var(--layer);color:var(--text);border:1px solid var(--border);
 .grid{display:grid;gap:16px}
 .grid.kpis{grid-template-columns:repeat(4,1fr)}
 .grid.two{grid-template-columns:repeat(2,1fr);margin-top:8px}
-.grid.one{grid-template-columns:1fr;margin-top:8px}
-@media (max-width:1000px){.grid.kpis{grid-template-columns:repeat(2,1fr)}.grid.two{grid-template-columns:1fr}}
+@media (max-width:1000px){
+  .grid.kpis{grid-template-columns:repeat(2,1fr)}
+  .grid.two{grid-template-columns:1fr}
+}
 
 /* Cards */
 .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px}
@@ -59,22 +73,18 @@ select{background:var(--layer);color:var(--text);border:1px solid var(--border);
 .pill.good{background:rgba(34,197,94,.12);color:var(--good);border-color:rgba(34,197,94,.35)}
 .pill.bad{background:rgba(239,68,68,.12);color:var(--bad);border-color:rgba(239,68,68,.35)}
 
-/* Charts — uniform size for ALL cards */
-/* Uniform chart area for ALL cards */
+/* Charts */
 .chart-wrap { position: relative; height: 220px; }
 .chart-wrap > canvas { display: block; width: 100%; height: 100%; }
 
-/* Gauge readout sits centered INSIDE the gauge (so no extra height) */
+/* Gauge readout */
 .chart-wrap.gauge .gauge-readout{
-  position:absolute;
-  top:50%; left:50%;
-  transform:translate(-50%,-50%);
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
   font-weight:800; font-size:20px; white-space:nowrap; text-align:center;
 }
 .gauge-readout small{ font-weight:600; color:#97a3af; margin-left:4px; }
 
-
-/* Rain status inline */
+/* Inline rain status */
 .inline-status{display:flex;align-items:center;gap:8px}
 .small-emoji{font-size:18px}
 .small-text{font-size:13px}
@@ -86,3 +96,22 @@ select{background:var(--layer);color:var(--text);border:1px solid var(--border);
 .toast{background:var(--layer);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:12px;min-width:240px;box-shadow:var(--shadow)}
 .toast.good{border-color:rgba(34,197,94,.35)}
 .toast.bad{border-color:rgba(239,68,68,.35)}
+
+/* ===== Rain Background FX ===== */
+/* Raindrop particle layer (canvas) */
+#rainFx{
+  pointer-events:none;
+  position:fixed; inset:0; z-index:0;
+  opacity:0; transition:opacity .25s ease;
+  /* the canvas is added by JS */
+}
+body.raining #rainFx{ opacity:1; }
+
+.topbar, .container { position:relative; z-index:1; }
+body.raining { background: linear-gradient(180deg, #0a0c12, #06070b); }
+body.raining #rainFx { opacity:1; }
+
+@keyframes rainFall{
+  from { background-position: 0 0, 0 0; }
+  to   { background-position: 0 0, 0 24px; }
+}

@@ -28,11 +28,12 @@
       <button id="btnToggle" class="btn primary">▶ Play</button>
 
       <label class="switch">
-        <input id="demoToggle" type="checkbox" checked />
+        <input id="demoToggle" type="checkbox" />
         <span class="slider"></span>
       </label>
       <span class="label">Demo data</span>
 
+      
       <div class="sep"></div>
 
       <div class="field">
@@ -48,7 +49,7 @@
       <div class="field">
         <label for="thSound">Sound alert ≥</label>
         <div class="input">
-          <input id="thSound" type="number" min="0" max="120" step="1" value="80" />
+          <input id="thSound" type="number" min="0" max="150" step="1" value="80" />
           <span class="unit" id="soundUnitLabel">dB</span>
         </div>
       </div>
@@ -58,6 +59,23 @@
         <div class="input">
           <input id="thRain" type="number" min="0" max="1" step="0.05" value="0.30" />
           <span class="unit">0–1</span>
+        </div>
+      </div>
+
+      <!-- Temp / Hum gates inline -->
+      <div class="field">
+        <label for="thHum">Humidity ≥</label>
+        <div class="input">
+          <input id="thHum" type="number" min="0" max="100" step="1" value="78" />
+          <span class="unit">%</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="thTemp">Temperature ≤</label>
+        <div class="input">
+          <input id="thTemp" type="number" min="-20" max="60" step="0.5" value="35" />
+          <span class="unit">°C</span>
         </div>
       </div>
     </div>
@@ -79,20 +97,18 @@
         <div class="sub"><span id="rainBadge" class="pill">—</span></div>
       </article>
 
-      <!-- Temperature KPI -->
       <article class="card kpi">
         <header>Temperature</header>
         <div class="value"><span id="kTemp">—</span><small> °C</small></div>
         <div class="sub muted">Peak: <span id="kTempPeak">—</span> °C</div>
       </article>
 
-      <!-- Humidity KPI -->
       <article class="card kpi">
         <header>Humidity</header>
         <div class="value"><span id="kHum">—</span><small> %</small></div>
         <div class="sub muted">Peak: <span id="kHumPeak">—</span> %</div>
       </article>
-    </section> <!-- ✅ CLOSE THE KPIs SECTION -->
+    </section>
 
     <!-- ROW 1: Sound — Current | Sound — History -->
     <section class="grid two">
@@ -123,7 +139,7 @@
           <div class="inline-status">
             <span id="rainStatusIcon" class="emoji small-emoji">—</span>
             <span id="rainStatusText" class="status-text small-text">—</span>
-            <span class="muted small">| Threshold <span id="rainThreshRead">0.30</span></span>
+            <span class="muted small">| Thr <span id="rainThreshRead">0.30</span> · Hum ≥ <span id="humGateRead">78</span>% · Temp ≤ <span id="tempGateRead">35</span>°C</span>
           </div>
         </div>
         <div class="chart-wrap"><canvas id="rainLine"></canvas></div>
@@ -139,6 +155,9 @@
     </section>
 
   </main>
+
+  <!-- Background rain effect (auto toggled) -->
+  <div id="rainFx" aria-hidden="true"></div>
 
   <div id="toasts" class="toasts" aria-live="polite"></div>
 
