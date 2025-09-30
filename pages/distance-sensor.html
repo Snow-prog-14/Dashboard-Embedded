@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Distance Strip + DHT Line (last 60s)</title>
+  <link rel="stylesheet" href="../styles/act2.css">
+  </head>
+<body>
+  <div class="wrap">
+    <h1>Distance Strip + DHT Line (last 60s)</h1>
+
+    <div class="row">
+      <div class="card">
+        <div class="title">Status</div>
+        <div class="statline" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+          <span id="overall" class="badge warn">connecting…</span>
+          <span class="sub">window: 1m 0s</span>
+        </div>
+        <div class="sub" style="margin-top:6px">
+          <span id="statA">A: req 0 • ok 0 • err 0</span> &nbsp; | &nbsp;
+          <span id="statB">B: req 0 • ok 0 • err 0</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="title">Buzzer</div>
+        <div id="buzzer" class="buzzer buzzer-off">
+          <div class="dot"></div>
+          <div class="label">Buzzer</div>
+          <div id="buzzVal" class="sub" style="margin-left:auto">--.-- cm</div>
+        </div>
+        <div class="sub" style="margin-top:6px;">Threshold: 12 cm (ON when ≥ 12 cm)</div>
+      </div>
+    </div>
+
+    <div class="row tight">
+      <div class="card">
+        <div class="title">Ultrasonic A</div>
+        <div class="big" id="distA">--.--</div>
+        <div class="sub" id="updA">A updated: —</div>
+      </div>
+      <div class="card">
+        <div class="title">Ultrasonic B</div>
+        <div class="big" id="distB">--.--</div>
+        <div class="sub" id="updB">B updated: —</div>
+      </div>
+      <div class="card">
+        <div class="title">DHT</div>
+        <div class="big"><span id="temp">--.- °C</span> &nbsp; | &nbsp; <span id="hum">-- %</span></div>
+        <div class="sub" id="updDht">DHT updated: —</div>
+        <!-- NEW: peak readouts -->
+        <div class="sub">Peak (60s): <span id="peakTemp">--.- °C</span> &nbsp; | &nbsp; <span id="peakHum">-- %</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="title">Series</div>
+      <div id="toggles" class="toggles">
+        <button class="toggle active" data-series="a">Ultrasonic A</button>
+        <button class="toggle active" data-series="b">Ultrasonic B</button>
+        <button class="toggle active" data-series="t">Temp (°C)</button>
+        <button class="toggle active" data-series="h">Humidity (%)</button>
+      </div>
+    </div>
+
+    <!-- Graph 1: Distance strip chart -->
+    <div class="card">
+      <div class="title">Distance (last 60s) — Strip Chart</div>
+      <div class="legend">
+        <span class="key"><span class="sw" style="background:var(--accentA)"></span> Sensor A</span>
+        <span class="key"><span class="sw" style="background:var(--accentB)"></span> Sensor B</span>
+      </div>
+      <canvas id="strip" width="1100" height="260"></canvas>
+    </div>
+
+    <!-- Graph 2: DHT time line -->
+    <div class="card">
+      <div class="title">Temperature & Humidity (last 60s)</div>
+      <div class="legend">
+        <span class="key"><span class="sw" style="background:var(--accentT)"></span> Temperature (°C)</span>
+        <span class="key"><span class="sw" style="background:var(--accentH)"></span> Humidity (%)</span>
+      </div>
+      <canvas id="dhtChart" width="1100" height="260"></canvas>
+    </div>
+  </div>
+
+<script src="../scripts/act2.js"></script>
+</body>
+</html>

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Humidity and Temperature Sensor</title>
+  <link rel="stylesheet" href="../styles/act1.css">
+</head>
+<body>
+  <main class="container">
+    <h1>Humidity and Temperature </h1>
+
+    <section class="grid">
+      <div class="card">
+        <h2>Temperature</h2>
+        <div class="metric"><span id="temp">--</span> °C</div>
+        <div class="muted">Last update: <span id="updated">never</span></div>
+      </div>
+      <div class="card">
+        <h2>Humidity</h2>
+        <div class="metric"><span id="hum">--</span> %</div>
+      </div>
+      <div class="card">
+        <h2>Status</h2>
+        <div>Update interval: <code id="updSec">5s</code></div>
+        <div>Total records: <code id="recCount">0</code></div>
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:12px;">
+      <div class="row">
+        <h2 style="margin:0;">Historical Data</h2>
+        <div class="row" style="gap:8px;">
+          <label>Show last <input id="mins" type="number" value="0" min="5" step="5"> min</label>
+
+        <!-- <button id="btnClear" class="btn" type="button">Clear Data</button> > TAGO MUNA--> 
+        </div>
+      </div>
+      <div id="chartWrap"><canvas id="histChart"></canvas></div>
+    </section>
+    <section class="card" style="margin-top:12px;">
+      <div class="row" style="justify-content:space-between;align-items:center;gap:8px;">
+        <h2 style="margin:0;">Live Logs</h2>
+        <label>Show last
+          <input id="logMins" type="number" value="60" min="5" step="5" />
+          min
+        </label>
+      </div>
+      <div class="log-wrap">
+        <table class="log">
+          <thead>
+            <tr><th>Time</th><th>Temp (°C)</th><th>Humidity (%)</th></tr>
+          </thead>
+          <tbody id="logBody"><tr><td colspan="3" class="muted">No logs yet.</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="../scripts/act1.js"></script>
+</body>
+</html>

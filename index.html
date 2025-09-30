@@ -5,162 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>RJ45 • Embedded Systems Activities</title>
   <meta name="color-scheme" content="light dark">
-  <style>
-    :root{
-      /* Light (default) */
-      --bg:#f7f8fb;
-      --surface:#ffffff;
-      --border:#e6e8ef;
-      --text:#12151e;
-      --muted:#5b6573;
-      --accent:#2d66b2;
-      --accent-2:#6aa6ff;
-      --chip:#eef4ff;
-      --radius:14px;
-      --shadow:0 10px 30px rgba(16,24,40,.10);
-      --shadow-lg:0 20px 48px rgba(16,24,40,.16);
-    }
-    @media (prefers-color-scheme: dark){
-      :root{
-        --bg:#0f1115;
-        --surface:#141922;
-        --border:#242b37;
-        --text:#e8ecf1;
-        --muted:#9aa4ae;
-        --accent:#6aa6ff;
-        --accent-2:#87b7ff;
-        --chip:rgba(102,153,255,.12);
-        --shadow:0 12px 28px rgba(0,0,0,.35);
-        --shadow-lg:0 22px 54px rgba(0,0,0,.45);
-      }
-    }
-
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{
-      margin:0;
-      font:15px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-      color:var(--text);
-      background:
-        radial-gradient(1200px 600px at 10% -10%, var(--chip), transparent 60%),
-        radial-gradient(1000px 500px at 110% 0%, rgba(106,166,255,.12), transparent 55%),
-        var(--bg);
-      -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
-      display:flex; flex-direction:column; min-height:100dvh;
-    }
-
-    /* widen to comfortably fit 5 cards */
-    .wrap{max-width:1380px;margin:auto;padding:24px}
-
-    /* Topbar */
-    .topbar{
-      position:sticky;top:0;z-index:10;
-      background:rgba(255,255,255,.75);
-      backdrop-filter:saturate(120%) blur(10px);
-      border-bottom:1px solid var(--border)
-    }
-    @media (prefers-color-scheme: dark){.topbar{background:rgba(12,14,18,.6)}}
-    .topbar__inner{display:flex;align-items:center;justify-content:space-between;gap:16px}
-    .brand{display:flex;align-items:center;gap:12px}
-    .mark{
-      width:38px;height:38px;border-radius:10px;flex:0 0 38px;
-      background:conic-gradient(from 180deg,var(--accent),var(--accent-2),var(--accent));
-      box-shadow:0 6px 18px rgba(45,102,178,.35)
-    }
-    .brand h1{font-size:20px;letter-spacing:.2px;margin:0}
-    .subtitle{margin:0;color:var(--muted);font-size:12.5px}
-    .chips{display:flex;gap:8px;align-items:center}
-    .chip{
-      padding:.35rem .6rem;border-radius:999px;background:var(--chip);color:var(--accent);
-      border:1px solid rgba(45,102,178,.18);font-weight:600;font-size:12px
-    }
-
-    main{flex:1}
-
-    /* Hero / roster summary */
-    .hero{margin-top:18px}
-    .hero__card{
-      display:grid;gap:18px;background:var(--surface);border:1px solid var(--border);
-      border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)
-    }
-    .hero__cols{display:grid;gap:18px;grid-template-columns:2fr 1.2fr}
-    @media (max-width:900px){.hero__cols{grid-template-columns:1fr}}
-    .eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:0 0 6px}
-    .leader{margin:0;font-weight:700}
-    .list{margin:0;padding-left:18px;display:grid;gap:4px}
-
-    /* Section */
-    .section-head{display:flex;align-items:end;justify-content:space-between;margin:22px 0 12px}
-    .section-title{font-size:18px;margin:0}
-    .count{color:var(--muted);font-size:13px}
-
-    /* Grid + cards (5 per row on wide screens) */
-    .grid{
-      display:grid;
-      grid-template-columns:repeat(5, minmax(0,1fr));
-      gap:18px;
-    }
-    @media (max-width:1200px){ .grid{grid-template-columns:repeat(4, minmax(0,1fr));} }
-    @media (max-width:990px){  .grid{grid-template-columns:repeat(3, minmax(0,1fr));} }
-    @media (max-width:720px){  .grid{grid-template-columns:repeat(2, minmax(0,1fr));} }
-    @media (max-width:480px){  .grid{grid-template-columns:1fr;} }
-
-    .card{
-      display:block;color:inherit;text-decoration:none;background:var(--surface);
-      border:1px solid var(--border);border-radius:16px;overflow:hidden;
-      box-shadow:var(--shadow);
-      transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease
-    }
-    .card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);
-      border-color:color-mix(in oklab, var(--accent) 24%, var(--border))}
-    .card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-
-    .thumb{position:relative;aspect-ratio:16/9;background:#dfe6f6}
-    @media (prefers-color-scheme: dark){.thumb{background:#0e1117}}
-    .thumb img{width:100%;height:100%;object-fit:cover;display:block}
-    .badge{
-      position:absolute;left:10px;top:10px;padding:.28rem .55rem;font-size:11px;border-radius:999px;
-      background:rgba(0,0,0,.55);color:#fff;border:1px solid rgba(255,255,255,.16);backdrop-filter:blur(4px)
-    }
-
-    .row{display:flex;gap:12px;padding:12px}
-    .avatar{flex:0 0 auto;width:36px;height:36px;border-radius:50%;overflow:hidden;border:1px solid var(--border);background:#f3f5fb}
-    @media (prefers-color-scheme: dark){.avatar{background:#222a}}
-    .avatar img{width:100%;height:100%;object-fit:cover;display:block}
-    .meta{min-width:0}
-    .title{
-      margin:0 0 4px 0;font-weight:700;font-size:15px;letter-spacing:.1px;
-      display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden
-    }
-    .channel{color:var(--muted);font-size:13px}
-    .menu{margin-left:auto;align-self:flex-start;padding:4px 6px;border-radius:8px;background:transparent;border:1px solid transparent;color:var(--muted);cursor:pointer}
-    .menu:hover{background:color-mix(in oklab, var(--chip) 60%, transparent);border-color:var(--border)}
-
-    /* Footer with roster + professors */
-    .site-footer{
-      margin-top:28px;border-top:1px solid var(--border);background:var(--surface)
-    }
-    .site-footer .wrap{padding-top:18px;padding-bottom:18px}
-    .footer-grid{
-      display:grid;
-      grid-template-columns:1.2fr 1fr 1.4fr 1fr; /* Intro | Leader | Members | Professors */
-      gap:16px;align-items:start
-    }
-    .footer-title{font-weight:700;letter-spacing:.2px}
-    .footer-sub{color:var(--muted);font-size:13px;margin-top:4px}
-    .footer-head{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin-bottom:6px}
-    .footer-list{margin:0;padding-left:18px;display:grid;gap:4px}
-    .footer-meta{color:var(--muted);font-size:13px;margin-top:12px}
-    @media (max-width:900px){
-      .footer-grid{grid-template-columns:1fr 1fr}
-    }
-    @media (max-width:560px){
-      .footer-grid{grid-template-columns:1fr}
-    }
-  </style>
+  <link rel="stylesheet" href="index.css">
 </head>
 <body>
-  <!-- Topbar -->
   <header class="topbar">
     <div class="wrap topbar__inner">
       <div class="brand">
@@ -186,10 +33,10 @@
     <!-- Cards grid (5 per row on desktop) -->
     <section class="grid" role="list">
       <!-- 1 -->
-      <a class="card" role="listitem" href="act1/humidity-temp.html" target="_blank" rel="noopener noreferrer" title="Open HUMIDITY AND TEMPERATURE SENSOR">
-        <div class="thumb"><img src="act1/humidity.png" alt="Humidity & temperature sensor preview"><span class="badge">Sensors</span></div>
+      <a class="card" role="listitem" href="pages/humidity-temp.html" target="_blank" rel="noopener noreferrer" title="Open HUMIDITY AND TEMPERATURE SENSOR">
+        <div class="thumb"><img src="../resources/thumbnails/humidity.png" alt="Humidity & temperature sensor preview"><span class="badge">Sensors</span></div>
         <div class="row">
-          <div class="avatar"><img src="act1/1.png" alt=""></div>
+          <div class="avatar"><img src="../resources/thumbnail-numbers/1.png" alt=""></div>
           <div class="meta">
             <h3 class="title">HUMIDITY AND TEMPERATURE SENSOR</h3>
             <div class="channel">Rizal Laqui</div>
@@ -199,10 +46,10 @@
       </a>
 
       <!-- 2 -->
-      <a class="card" role="listitem" href="act2/distance-sensor.html" target="_blank" rel="noopener noreferrer" title="Open DISTANCE SENSOR">
-        <div class="thumb"><img src="act2/distance.png" alt="Distance sensor preview"><span class="badge">Ultrasonic</span></div>
+      <a class="card" role="listitem" href="pages/distance-sensor.html" target="_blank" rel="noopener noreferrer" title="Open DISTANCE SENSOR">
+        <div class="thumb"><img src="../resources/thumbnails/distance.png" alt="Distance sensor preview"><span class="badge">Ultrasonic</span></div>
         <div class="row">
-          <div class="avatar"><img src="act2/2.png" alt=""></div>
+          <div class="avatar"><img src="../resources/thumbnail-numbers/2.png" alt=""></div>
           <div class="meta">
             <h3 class="title">DISTANCE SENSOR</h3>
             <div class="channel">Ronel Paglomutan</div>
@@ -212,10 +59,10 @@
       </a>
 
       <!-- 3 -->
-      <a class="card" role="listitem" href="act3/motion-camera.html" target="_blank" rel="noopener noreferrer" title="Open MOTION SENSOR AND RASPBERRY PI CAMERA MODULE">
-        <div class="thumb"><img src="act3/motion.png" alt="Motion sensor with camera preview"><span class="badge">Camera</span></div>
+      <a class="card" role="listitem" href="pages/motion-camera.html" target="_blank" rel="noopener noreferrer" title="Open MOTION SENSOR AND RASPBERRY PI CAMERA MODULE">
+        <div class="thumb"><img src="../resources/thumbnails/motion.png" alt="Motion sensor with camera preview"><span class="badge">Camera</span></div>
         <div class="row">
-          <div class="avatar"><img src="act3/3.png" alt=""></div>
+          <div class="avatar"><img src="../resources/thumbnail-numbers/3.png" alt=""></div>
           <div class="meta">
             <h3 class="title">MOTION SENSOR AND RASPBERRY PI CAMERA MODULE</h3>
             <div class="channel">Rizal Laqui</div>
@@ -225,10 +72,10 @@
       </a>
 
       <!-- 4 -->
-      <a class="card" role="listitem" href="act4/gas-vibration.html" target="_blank" rel="noopener noreferrer" title="Open GAS AND VIBRATION SENSOR WITH WEBSITE">
-        <div class="thumb"><img src="act4/gas.png" alt="Gas & vibration preview"><span class="badge">Alerts</span></div>
+      <a class="card" role="listitem" href="pages/gas-vibration.html" target="_blank" rel="noopener noreferrer" title="Open GAS AND VIBRATION SENSOR WITH WEBSITE">
+        <div class="thumb"><img src="../resources/thumbnails/gas.png" alt="Gas & vibration preview"><span class="badge">Alerts</span></div>
         <div class="row">
-          <div class="avatar"><img src="act4/4.png" alt=""></div>
+          <div class="avatar"><img src="../resources/thumbnail-numbers/4.png" alt=""></div>
           <div class="meta">
             <h3 class="title">GAS AND VIBRATION SENSOR WITH WEBSITE</h3>
             <div class="channel">Ronel Paglomutan</div>
@@ -238,10 +85,10 @@
       </a>
 
       <!-- 5 -->
-      <a class="card" role="listitem" href="act5/sound-raindrop.html" target="_blank" rel="noopener noreferrer" title="Open SOUND AND RAINDROP SENSOR WITH WEBSITE">
-        <div class="thumb"><img src="act5/sound.png" alt="Sound & raindrop preview"><span class="badge">Weather</span></div>
+      <a class="card" role="listitem" href="pages/sound-raindrop.html" target="_blank" rel="noopener noreferrer" title="Open SOUND AND RAINDROP SENSOR WITH WEBSITE">
+        <div class="thumb"><img src="../resources/thumbnails/sound.png" alt="Sound & raindrop preview"><span class="badge">Weather</span></div>
         <div class="row">
-          <div class="avatar"><img src="act5/5.png" alt=""></div>
+          <div class="avatar"><img src="../resources/thumbnail-numbers/5.png" alt=""></div>
           <div class="meta">
             <h3 class="title">SOUND AND RAINDROP SENSOR WITH WEBSITE</h3>
             <div class="channel">Rizal Laqui</div>
@@ -251,10 +98,10 @@
       </a>
 
       <!-- 6 -->
-      <a class="card" role="listitem" href="act6/GPS-module.html" target="_blank" rel="noopener noreferrer" title="Open GPS MODULE WITH WEBSITE">
-        <div class="thumb"><img src="act6/gps.png" alt="GPS module preview"><span class="badge">Location</span></div>
+      <a class="card" role="listitem" href="pages/GPS-module.html" target="_blank" rel="noopener noreferrer" title="Open GPS MODULE WITH WEBSITE">
+        <div class="thumb"><img src="../resources/thumbnails/gps.png" alt="GPS module preview"><span class="badge">Location</span></div>
         <div class="row">
-          <div class="avatar"><img src="act6/6.png" alt=""></div>
+          <div class="avatar"><img src="../resources/thumbnail-numbers/6.png" alt=""></div>
           <div class="meta">
             <h3 class="title">GPS MODULE WITH WEBSITE</h3>
             <div class="channel">Ronel Paglomutan</div>
@@ -264,10 +111,10 @@
       </a>
 
       <!-- 7 -->
-      <a class="card" role="listitem" href="act7/voice-control.html" target="_blank" rel="noopener noreferrer" title="Open VOICE CONTROL LED'S WITH WEBSITE">
-        <div class="thumb"><img src="https://picsum.photos/id/1043/1280/720" alt="Voice control LEDs preview"><span class="badge">Voice</span></div>
+      <a class="card" role="listitem" href="pages/voice-control.html" target="_blank" rel="noopener noreferrer" title="Open VOICE CONTROL LED'S WITH WEBSITE">
+        <div class="thumb"><img src="../resources/thumbnails/" alt="Voice control LEDs preview"><span class="badge">Voice</span></div>
         <div class="row">
-          <div class="avatar"><img src="act7/7.png" alt=""></div>
+          <div class="avatar"><img src="../resources/thumbnail-numbers/7.png" alt=""></div>
           <div class="meta">
             <h3 class="title">VOICE CONTROL LED'S WITH WEBSITE</h3>
             <div class="channel">Rizal Laqui</div>
@@ -277,10 +124,10 @@
       </a>
 
       <!-- 8 -->
-      <a class="card" role="listitem" href="act8/Text-to-Speech.html" target="_blank" rel="noopener noreferrer" title="Open TEXT TO SPEECH WITH WEBSITE">
-        <div class="thumb"><img src="act8/text.png" alt="Text to speech preview"><span class="badge">TTS</span></div>
+      <a class="card" role="listitem" href="pages/Text-to-Speech.html" target="_blank" rel="noopener noreferrer" title="Open TEXT TO SPEECH WITH WEBSITE">
+        <div class="thumb"><img src="../resources/thumbnails/text.png" alt="Text to speech preview"><span class="badge">TTS</span></div>
         <div class="row">
-          <div class="avatar"><img src="act8/8.png" alt=""></div>
+          <div class="avatar"><img src="../resources/thumbnail-numbers/8.png" alt=""></div>
           <div class="meta">
             <h3 class="title">TEXT TO SPEECH WITH WEBSITE</h3>
             <div class="channel">Ronel Paglomutan</div>
@@ -290,10 +137,10 @@
       </a>
 
       <!-- 9 -->
-      <a class="card" role="listitem" href="act9/object-detection.html" target="_blank" rel="noopener noreferrer" title="Open OBJECT DETECTION USING RASPBERRY PI CAMERA WITH WEBSITE">
-        <div class="thumb"><img src="https://picsum.photos/id/1043/1280/720" alt="Object detection preview"><span class="badge">Vision</span></div>
+      <a class="card" role="listitem" href="pages/object-detection.html" target="_blank" rel="noopener noreferrer" title="Open OBJECT DETECTION USING RASPBERRY PI CAMERA WITH WEBSITE">
+        <div class="thumb"><img src="../resources/thumbnails/" alt="Object detection preview"><span class="badge">Vision</span></div>
         <div class="row">
-          <div class="avatar"><img src="act9/9.png" alt=""></div>
+          <div class="avatar"><img src="../resources/thumbnail-numbers/9.png" alt=""></div>
           <div class="meta">
             <h3 class="title">OBJECT DETECTION USING RASPBERRY PI CAMERA WITH WEBSITE</h3>
             <div class="channel">Rizal Laqui</div>
@@ -303,10 +150,10 @@
       </a>
 
       <!-- 10 -->
-      <a class="card" role="listitem" href="act10/face-recognition.html" target="_blank" rel="noopener noreferrer" title="Open FACE RECOGNITION USING RASPBERRY PI CAMERA WITH WEBSITE">
-        <div class="thumb"><img src="https://picsum.photos/id/1043/1280/720" alt="Face recognition preview"><span class="badge">Vision</span></div>
+      <a class="card" role="listitem" href="pages/face-recognition.html" target="_blank" rel="noopener noreferrer" title="Open FACE RECOGNITION USING RASPBERRY PI CAMERA WITH WEBSITE">
+        <div class="thumb"><img src="../resources/thumbnails/" alt="Face recognition preview"><span class="badge">Vision</span></div>
         <div class="row">
-          <div class="avatar"><img src="act10/10.png" alt=""></div>
+          <div class="avatar"><img src="../resources/thumbnail-numbers/10.png" alt=""></div>
           <div class="meta">
             <h3 class="title">FACE RECOGNITION USING RASPBERRY PI CAMERA WITH WEBSITE</h3>
             <div class="channel">Ronel Paglomutan</div>
@@ -323,23 +170,23 @@
       <div class="footer-grid">
         <div>
           <div class="footer-title">RJ45 — Embedded Systems</div>
-          <div class="footer-sub">Group Roster</div>
+          <div class="footer-sub">PCEIT-03-701A</div>
         </div>
 
         <div>
           <div class="footer-head">Group Leader</div>
           <ul class="footer-list">
-            <li>MARAASIN, ALEJANDRA</li>
+            <li><a class="profile-link" href="https://www.facebook.com/alejandra.maraasin14#" target="_blank" rel="noopener noreferrer">MARAASIN, ALEJANDRA</a></li>
           </ul>
         </div>
 
         <div>
           <div class="footer-head">Group Members</div>
           <ul class="footer-list">
-            <li>CABRERA, ACE</li>
-            <li>IMPUESTO, REYMART</li>
-            <li>RODRIGAZO III, JAIME</li>
-            <li>SAUL, FERNAND EMIL</li>
+            <li><a class="profile-link" href="https://www.facebook.com/acecabrera19#" target="_blank" rel="noopener noreferrer">CABRERA, ACE</a></li>
+            <li><a class="profile-link" href="https://www.facebook.com/reymart.impuesto.3#" target="_blank" rel="noopener noreferrer">IMPUESTO, REYMART</a></li>
+            <li><a class="profile-link" href="https://www.facebook.com/CornFlakes003#" target="_blank" rel="noopener noreferrer">RODRIGAZO III, JAIME</a></li>
+            <li><a class="profile-link" href="https://www.facebook.com/frnnd.emiru#" target="_blank" rel="noopener noreferrer">SAUL, FERNAND EMIL</a></li>
           </ul>
         </div>
 
