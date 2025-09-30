@@ -1,150 +1,7 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Distance Strip + DHT Line (last 60s)</title>
-<style>
-  :root{
-    --bg:#0f0f10;
-    --card:#17181a;
-    --text:#eaeaea;
-    --muted:#a0a0a0;
-    --accentA:#7b83ff;  /* Sensor A dots */
-    --accentB:#ff8b8b;  /* Sensor B dots */
-    --accentT:#ff6b9e;  /* Temp line */
-    --accentH:#3db6ff;  /* Humidity line */
-  }
 
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial}
-  .wrap{max-width:1100px;margin:auto;padding:16px 20px 48px}
-
-  h1{font-size:20px;margin:0 0 12px}
-  .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:12px}
-
-  .card{
-    background:var(--card); border:1px solid #1e1f22; border-radius:14px; padding:12px;
-    box-shadow:0 1px 0 rgba(255,255,255,0.02) inset, 0 8px 24px rgba(0,0,0,0.25);
-  }
-  .title{font-weight:600;margin-bottom:6px;color:#fff}
-  .muted{color:var(--muted)}
-  .big{font-size:28px;font-weight:700;margin:2px 0 4px}
-  .sub{font-size:12px;color:#muted}
-  .row.tight{gap:8px}
-
-  .badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:12px}
-  .badge.ok{background:#11361c;color:#6bff9a;border:1px solid #1a5a2d}
-  .badge.warn{background:#2b2a14;color:#ffe16b;border:1px solid #6b5f1a}
-  .badge.bad{background:#3a1919;color:#ff9a9a;border:1px solid #5a1a1a}
-
-  .buzzer{
-    display:flex;align-items:center;gap:8px; padding:8px 10px;border-radius:12px;
-    border:1px solid #262626; background:#121212;
-  }
-  .buzzer .dot{width:12px;height:12px;border-radius:50%;background:#555}
-  .buzzer-on .dot{background:#ff5959; box-shadow:0 0 12px rgba(255,90,90,0.8)}
-  .buzzer-on .label::after{content:" ON"; color:#ff9a9a}
-  .buzzer-off .label::after{content:" OFF"; color:#9aff9a}
-
-  .toggles{display:flex;flex-wrap:wrap;gap:8px}
-  .toggle{
-    background:#141415;border:1px solid #2a2b2f;color:#cfcfcf;padding:6px 10px;border-radius:10px;font-size:12px;cursor:pointer;
-  }
-  .toggle.active{outline:2px solid #3a82f7;color:#fff}
-
-  canvas{display:block;width:100%;height:auto;border:1px solid #1e1f22;border-radius:12px;background:linear-gradient(#141414,#101010)}
-  #strip{margin-top:8px}
-  #dhtChart{margin-top:8px}
-
-  .legend{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
-  .key{display:inline-flex;align-items:center;gap:8px;color:#d6d6d6;font-size:12px}
-  .sw{width:10px;height:10px;border-radius:50%}
-</style>
-</head>
-<body>
-<div class="wrap">
-  <h1>Distance Strip + DHT Line (last 60s)</h1>
-
-  <div class="row">
-    <div class="card">
-      <div class="title">Status</div>
-      <div class="statline" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-        <span id="overall" class="badge warn">connecting…</span>
-        <span class="sub">window: 1m 0s</span>
-      </div>
-      <div class="sub" style="margin-top:6px">
-        <span id="statA">A: req 0 • ok 0 • err 0</span> &nbsp; | &nbsp;
-        <span id="statB">B: req 0 • ok 0 • err 0</span>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="title">Buzzer</div>
-      <div id="buzzer" class="buzzer buzzer-off">
-        <div class="dot"></div>
-        <div class="label">Buzzer</div>
-        <div id="buzzVal" class="sub" style="margin-left:auto">--.-- cm</div>
-      </div>
-      <div class="sub" style="margin-top:6px;">Threshold: 12 cm (ON when ≥ 12 cm)</div>
-    </div>
-  </div>
-
-  <div class="row tight">
-    <div class="card">
-      <div class="title">Ultrasonic A</div>
-      <div class="big" id="distA">--.--</div>
-      <div class="sub" id="updA">A updated: —</div>
-    </div>
-    <div class="card">
-      <div class="title">Ultrasonic B</div>
-      <div class="big" id="distB">--.--</div>
-      <div class="sub" id="updB">B updated: —</div>
-    </div>
-    <div class="card">
-      <div class="title">DHT</div>
-      <div class="big"><span id="temp">--.- °C</span> &nbsp; | &nbsp; <span id="hum">-- %</span></div>
-      <div class="sub" id="updDht">DHT updated: —</div>
-      <!-- NEW: peak readouts -->
-      <div class="sub">Peak (60s): <span id="peakTemp">--.- °C</span> &nbsp; | &nbsp; <span id="peakHum">-- %</span></div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="title">Series</div>
-    <div id="toggles" class="toggles">
-      <button class="toggle active" data-series="a">Ultrasonic A</button>
-      <button class="toggle active" data-series="b">Ultrasonic B</button>
-      <button class="toggle active" data-series="t">Temp (°C)</button>
-      <button class="toggle active" data-series="h">Humidity (%)</button>
-    </div>
-  </div>
-
-  <!-- Graph 1: Distance strip chart -->
-  <div class="card">
-    <div class="title">Distance (last 60s) — Strip Chart</div>
-    <div class="legend">
-      <span class="key"><span class="sw" style="background:var(--accentA)"></span> Sensor A</span>
-      <span class="key"><span class="sw" style="background:var(--accentB)"></span> Sensor B</span>
-    </div>
-    <canvas id="strip" width="1100" height="260"></canvas>
-  </div>
-
-  <!-- Graph 2: DHT time line -->
-  <div class="card">
-    <div class="title">Temperature & Humidity (last 60s)</div>
-    <div class="legend">
-      <span class="key"><span class="sw" style="background:var(--accentT)"></span> Temperature (°C)</span>
-      <span class="key"><span class="sw" style="background:var(--accentH)"></span> Humidity (%)</span>
-    </div>
-    <canvas id="dhtChart" width="1100" height="260"></canvas>
-  </div>
-</div>
-
-<script>
 /* =========================
-   CONFIG
-   ========================= */
+  CONFIG
+  ========================= */
 const CONFIG = {
   sensors: [
     { name: 'A', url: 'http://192.168.43.185:5000/api/ultra', colorVar: '--accentA' },
@@ -165,8 +22,8 @@ const visible = { a:true, b:true, t:true, h:true };
 const COLORS = { a:'#7b83ff', b:'#ff8b8b', t:'#ff6b9e', h:'#3db6ff' };
 
 /* =========================
-   STATE & DOM
-   ========================= */
+  STATE & DOM
+  ========================= */
 const state = [
   { sent:0, ok:0, err:0, data:[] }, // A
   { sent:0, ok:0, err:0, data:[] }  // B
@@ -195,8 +52,8 @@ const dhtCanvas   = document.getElementById('dhtChart');
 const dctx        = dhtCanvas.getContext('2d');
 
 /* =========================
-   HELPERS
-   ========================= */
+  HELPERS
+  ========================= */
 function getCSS(varName){ return getComputedStyle(document.documentElement).getPropertyValue(varName).trim(); }
 const nowTs = () => Math.floor(Date.now()/1000);
 const fmtTs = (t) => new Date(t*1000).toLocaleString();
@@ -246,8 +103,8 @@ function jitterFor(seed, amp=10){
 }
 
 /* =========================
-   POLLING
-   ========================= */
+  POLLING
+  ========================= */
 async function pollSensor(i){
   const sensor = CONFIG.sensors[i]; if (!sensor.url) return;
   state[i].sent++; updateMiniStats();
@@ -314,8 +171,8 @@ async function pollDHT(){
 }
 
 /* =========================
-   DRAW HELPERS
-   ========================= */
+  DRAW HELPERS
+  ========================= */
 function drawYGrid(ctx, M,PW,PH, yMin,yMax, yLabel){
   ctx.strokeStyle='#2a2a2a'; ctx.lineWidth=1;
   ctx.beginPath(); ctx.moveTo(M.l, M.t); ctx.lineTo(M.l, M.t+PH); ctx.stroke();                  // Y axis
@@ -366,8 +223,8 @@ function drawPeakDot(ctx, x, y, color){
 }
 
 /* =========================
-   GRAPH 1: CATEGORICAL STRIP (A vs B)
-   ========================= */
+  GRAPH 1: CATEGORICAL STRIP (A vs B)
+  ========================= */
 function renderDistanceStrip(){
   const W = stripCanvas.width, H = stripCanvas.height;
   sctx.clearRect(0,0,W,H);
@@ -427,8 +284,8 @@ function renderDistanceStrip(){
 }
 
 /* =========================
-   GRAPH 2: DHT LINE (Temp + Humidity) + PEAK MARKERS
-   ========================= */
+  GRAPH 2: DHT LINE (Temp + Humidity) + PEAK MARKERS
+  ========================= */
 function renderDHTChart(){
   const W = dhtCanvas.width, H = dhtCanvas.height;
   dctx.clearRect(0,0,W,H);
@@ -509,8 +366,8 @@ function renderDHTChart(){
 }
 
 /* =========================
-   BUZZER
-   ========================= */
+  BUZZER
+  ========================= */
 function updateBuzzer(distA, distB){
   const isNum = v => typeof v==='number' && Number.isFinite(v);
   const aOK=isNum(distA), bOK=isNum(distB);
@@ -522,8 +379,8 @@ function updateBuzzer(distA, distB){
 }
 
 /* =========================
-   TOGGLES
-   ========================= */
+  TOGGLES
+  ========================= */
 function wireToggles(){
   COLORS.a = getCSS('--accentA') || COLORS.a;
   COLORS.b = getCSS('--accentB') || COLORS.b;
@@ -544,8 +401,8 @@ function wireToggles(){
 }
 
 /* =========================
-   LIFECYCLE
-   ========================= */
+  LIFECYCLE
+  ========================= */
 let dhtTimer = null;
 
 async function start(){
@@ -563,6 +420,3 @@ function stop(){
 
 window.addEventListener('load', start);
 window.addEventListener('beforeunload', stop);
-</script>
-</body>
-</html>

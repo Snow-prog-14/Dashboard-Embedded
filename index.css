@@ -1,53 +1,164 @@
 :root{
-      --bg:#0f0f0f;
-      --text:#f1f1f1;
-      --muted:#aaaaaa;
-      --accent:#3ea6ff;
+      /* Light (default) */
+      --bg:#f7f8fb;
+      --surface:#ffffff;
+      --border:#e6e8ef;
+      --text:#12151e;
+      --muted:#5b6573;
+      --accent:#2d66b2;
+      --accent-2:#6aa6ff;
+      --chip:#eef4ff;
       --radius:14px;
+      --shadow:0 10px 30px rgba(16,24,40,.10);
+      --shadow-lg:0 20px 48px rgba(16,24,40,.16);
     }
+    @media (prefers-color-scheme: dark){
+      :root{
+        --bg:#0f1115;
+        --surface:#141922;
+        --border:#242b37;
+        --text:#e8ecf1;
+        --muted:#9aa4ae;
+        --accent:#6aa6ff;
+        --accent-2:#87b7ff;
+        --chip:rgba(102,153,255,.12);
+        --shadow:0 12px 28px rgba(0,0,0,.35);
+        --shadow-lg:0 22px 54px rgba(0,0,0,.45);
+      }
+    }
+
     *{box-sizing:border-box}
+    html,body{height:100%}
     body{
       margin:0;
-      font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      font:15px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
       color:var(--text);
-      background:var(--bg);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, var(--chip), transparent 60%),
+        radial-gradient(1000px 500px at 110% 0%, rgba(106,166,255,.12), transparent 55%),
+        var(--bg);
+      -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+      display:flex; flex-direction:column; min-height:100dvh;
     }
-    .wrap{max-width:1480px;margin:auto;padding:24px}
 
-    /* Header */
-    .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
-    .logo{font-weight:800;letter-spacing:.3px}
-    .pill{padding:.4rem .7rem;border-radius:999px;background:#222;color:#ddd;font-size:14px}
+    /* widen to comfortably fit 5 cards */
+    .wrap{max-width:1380px;margin:auto;padding:24px}
 
-    /* Grid + cards */
+    /* Topbar */
+    .topbar{
+      position:sticky;top:0;z-index:10;
+      background:rgba(255,255,255,.75);
+      backdrop-filter:saturate(120%) blur(10px);
+      border-bottom:1px solid var(--border)
+    }
+    @media (prefers-color-scheme: dark){.topbar{background:rgba(12,14,18,.6)}}
+    .topbar__inner{display:flex;align-items:center;justify-content:space-between;gap:16px}
+    .brand{display:flex;align-items:center;gap:12px}
+    .mark{
+      width:38px;height:38px;border-radius:10px;flex:0 0 38px;
+      background:conic-gradient(from 180deg,var(--accent),var(--accent-2),var(--accent));
+      box-shadow:0 6px 18px rgba(45,102,178,.35)
+    }
+    .brand h1{font-size:20px;letter-spacing:.2px;margin:0}
+    .subtitle{margin:0;color:var(--muted);font-size:12.5px}
+    .chips{display:flex;gap:8px;align-items:center}
+    .chip{
+      padding:.35rem .6rem;border-radius:999px;background:var(--chip);color:var(--accent);
+      border:1px solid rgba(45,102,178,.18);font-weight:600;font-size:12px
+    }
+
+    main{flex:1}
+
+    /* Hero / roster summary */
+    .hero{margin-top:18px}
+    .hero__card{
+      display:grid;gap:18px;background:var(--surface);border:1px solid var(--border);
+      border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)
+    }
+    .hero__cols{display:grid;gap:18px;grid-template-columns:2fr 1.2fr}
+    @media (max-width:900px){.hero__cols{grid-template-columns:1fr}}
+    .eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:0 0 6px}
+    .leader{margin:0;font-weight:700}
+    .list{margin:0;padding-left:18px;display:grid;gap:4px}
+
+    /* Section */
+    .section-head{display:flex;align-items:end;justify-content:space-between;margin:22px 0 12px}
+    .section-title{font-size:18px;margin:0}
+    .count{color:var(--muted);font-size:13px}
+
+    /* Grid + cards (5 per row on wide screens) */
     .grid{
       display:grid;
-      grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
-      gap:24px 16px;
+      grid-template-columns:repeat(5, minmax(0,1fr));
+      gap:18px;
     }
-    .card{display:block;color:inherit;text-decoration:none}
-    .thumb{
-      position:relative;background:#222;border-radius:var(--radius);overflow:hidden;
-      aspect-ratio:16/9;transition:transform .18s ease;
-    }
-    .card:hover .thumb{transform:translateY(-3px)}
-    .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+    @media (max-width:1200px){ .grid{grid-template-columns:repeat(4, minmax(0,1fr));} }
+    @media (max-width:990px){  .grid{grid-template-columns:repeat(3, minmax(0,1fr));} }
+    @media (max-width:720px){  .grid{grid-template-columns:repeat(2, minmax(0,1fr));} }
+    @media (max-width:480px){  .grid{grid-template-columns:1fr;} }
 
-    .row{display:flex;gap:12px;margin-top:10px}
-    .avatar{flex:0 0 auto;width:36px;height:36px;border-radius:50%;background:#2a2a2a;overflow:hidden}
+    .card{
+      display:block;color:inherit;text-decoration:none;background:var(--surface);
+      border:1px solid var(--border);border-radius:16px;overflow:hidden;
+      box-shadow:var(--shadow);
+      transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease
+    }
+    .card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);
+      border-color:color-mix(in oklab, var(--accent) 24%, var(--border))}
+    .card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+    .thumb{position:relative;aspect-ratio:16/9;background:#dfe6f6}
+    @media (prefers-color-scheme: dark){.thumb{background:#0e1117}}
+    .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+    .badge{
+      position:absolute;left:10px;top:10px;padding:.28rem .55rem;font-size:11px;border-radius:999px;
+      background:rgba(0,0,0,.55);color:#fff;border:1px solid rgba(255,255,255,.16);backdrop-filter:blur(4px)
+    }
+
+    .row{display:flex;gap:12px;padding:12px}
+    .avatar{flex:0 0 auto;width:36px;height:36px;border-radius:50%;overflow:hidden;border:1px solid var(--border);background:#f3f5fb}
+    @media (prefers-color-scheme: dark){.avatar{background:#222a}}
     .avatar img{width:100%;height:100%;object-fit:cover;display:block}
     .meta{min-width:0}
     .title{
-      font-weight:600;font-size:15px;margin:0 0 6px 0;
-      display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;
+      margin:0 0 4px 0;font-weight:700;font-size:15px;letter-spacing:.1px;
+      display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden
     }
-    .channel{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:13px}
+    .channel{color:var(--muted);font-size:13px}
+    .menu{margin-left:auto;align-self:flex-start;padding:4px 6px;border-radius:8px;background:transparent;border:1px solid transparent;color:var(--muted);cursor:pointer}
+    .menu:hover{background:color-mix(in oklab, var(--chip) 60%, transparent);border-color:var(--border)}
 
-    /* tiny icon + menu */
-    .icon{width:14px;height:14px;display:inline-block;vertical-align:-2px;fill:currentColor}
-    .verified{color:var(--accent)}
-    .menu{margin-left:auto;color:#999;align-self:flex-start;padding:4px;border-radius:8px}
-    .menu:hover{background:#262626}
+    /* Footer with roster + professors */
+    .site-footer{
+      margin-top:28px;border-top:1px solid var(--border);background:var(--surface)
+    }
+    .site-footer .wrap{padding-top:18px;padding-bottom:18px}
+    .footer-grid{
+      display:grid;
+      grid-template-columns:1.2fr 1fr 1.4fr 1fr; /* Intro | Leader | Members | Professors */
+      gap:16px;align-items:start
+    }
+    .footer-title{font-weight:700;letter-spacing:.2px}
+    .footer-sub{color:var(--muted);font-size:13px;margin-top:4px}
+    .footer-head{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin-bottom:6px}
+    .footer-list{margin:0;padding-left:18px;display:grid;gap:4px}
+    .footer-meta{color:var(--muted);font-size:13px;margin-top:12px}
+    /* CSS: keep links looking like normal text */
+    .footer-list .profile-link {
+      text-decoration: none;
+      color: inherit;
+    }
+    .footer-list .profile-link:visited,
+    .footer-list .profile-link:hover,
+    .footer-list .profile-link:active,
+    .footer-list .profile-link:focus {
+      text-decoration: none;
+      color: inherit;
+    }
 
-    /* Responsive tweak */
-    @media (max-width:560px){.wrap{padding:16px}}
+    @media (max-width:900px){
+      .footer-grid{grid-template-columns:1fr 1fr}
+    }
+    @media (max-width:560px){
+      .footer-grid{grid-template-columns:1fr}
+    }
