@@ -1,0 +1,76 @@
+:root{
+  --bg:#0b0f14; --panel:#141a22; --text:#e7edf3; --muted:#9fb1c3;
+  --accent:#60a5fa; --ok:#22c55e; --warn:#f59e0b; --err:#ef4444;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}
+.app{position:fixed;inset:0;display:grid;grid-template-rows:auto 1fr auto}
+
+header,footer{display:flex;align-items:center;gap:.75rem;padding:.75rem 1rem;background:linear-gradient(180deg,var(--panel),#0d1218)}
+header .brand{font-weight:800;letter-spacing:.3px}
+header .sp{flex:1}
+header .pill{display:inline-flex;align-items:center;gap:.5rem;padding:.45rem .7rem;border-radius:999px;background:#0f1620;border:1px solid #1e2836;color:var(--muted)}
+.status-dot{width:.55rem;height:.55rem;border-radius:50%;background:#4b5563}
+.status-running{background:var(--ok)}
+.badge{display:inline-flex;align-items:center;gap:.35rem;padding:.25rem .5rem;border-radius:999px;background:#0f1824;border:1px solid #1e2a3a;color:var(--muted);font-size:.8rem}
+
+.stage{position:relative;overflow:hidden;background:#000}
+#cam,#overlay{position:absolute;inset:0;transform:scaleX(-1)}
+#cam{min-width:100%;min-height:100%;object-fit:cover;filter:brightness(1.05) contrast(1.12)}
+#overlay{pointer-events:none}
+
+.controls{position:absolute;left:0;right:0;bottom:1rem;display:flex;justify-content:center;pointer-events:none;padding:0 1rem}
+.controls .stack{display:flex;gap:.5rem;flex-wrap:wrap;pointer-events:auto}
+.btn{appearance:none;border:1px solid #2a374b;background:#0f1722;color:var(--text);padding:.65rem .9rem;border-radius:.8rem;font-weight:600;letter-spacing:.2px;cursor:pointer}
+.btn:hover{border-color:#3a4b67;background:#101a28}
+.btn.primary{background:var(--accent);color:#0b1020;border-color:transparent}
+.btn.primary:hover{filter:brightness(1.05)}
+.btn.ghost{background:#0c121a;border-color:#1f2a3a;color:var(--muted)}
+
+dialog{border:none;border-radius:1rem;background:linear-gradient(180deg,#0f1622,#0b111a);color:var(--text);max-width:520px;width:calc(100% - 2rem);padding:1rem 1rem 1.2rem}
+dialog::backdrop{background:rgba(3,8,15,.6)}
+.modal-h{font-size:1.15rem;font-weight:800;margin:.25rem 0 .75rem}
+.row{display:flex;gap:.6rem}
+.field{display:grid;gap:.35rem;margin:.55rem 0}
+.field label{font-size:.9rem;color:var(--muted)}
+.field input, .field select{background:#0a1018;border:1px solid #223046;color:var(--text);padding:.7rem .8rem;border-radius:.65rem;font-size:1rem}
+.hint{font-size:.85rem;color:var(--muted)}
+.grid{display:grid;gap:.75rem}
+.grid.two{grid-template-columns:1fr 1fr}
+
+.toast{position:fixed;left:50%;bottom:1.1rem;transform:translateX(-50%);background:#0f1722;border:1px solid #263347;color:var(--text);padding:.55rem .8rem;border-radius:.7rem;box-shadow:0 10px 24px rgba(0,0,0,.35);display:none}
+.toast.show{display:block}
+
+.legend{position:absolute;top:1rem;left:1rem;display:flex;gap:.5rem;flex-wrap:wrap}
+.tag{display:inline-flex;align-items:center;gap:.35rem;background:#0f1824;border:1px solid #213049;color:#b8c9da;padding:.15rem .5rem;border-radius:.5rem;font-size:.8rem}
+
+/* Prompt Bar */
+.prompt-bar{
+  position:absolute; left:50%; transform:translateX(-50%);
+  bottom:5.5rem; min-width:260px; max-width:min(90vw,720px);
+  text-align:center; padding:.65rem .9rem; border-radius:.9rem;
+  background:#0f1722; border:1px solid #263347; color:var(--text);
+  box-shadow:0 10px 24px rgba(0,0,0,.35); pointer-events:none;
+  font-weight:600; letter-spacing:.2px;
+}
+
+/* Countdown overlay (admin verification) */
+.countdown{
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  font-weight:800; font-size: clamp(2.5rem, 8vw, 6rem);
+  color:#e7edf3; text-shadow:0 6px 24px rgba(0,0,0,.55);
+  background:rgba(3,8,15,.35); backdrop-filter: blur(2px);
+}
+[countdown-warning]{color:#f59e0b}
+/* put near your countdown styles */
+.countdown[hidden]{
+  display: none !important;
+}
+
+
+@media (max-width:720px){
+  header .pill{display:none}
+  .legend{display:none}
+  .prompt-bar{bottom:5rem}
+}
