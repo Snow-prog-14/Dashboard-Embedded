@@ -13,6 +13,11 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <link rel="stylesheet" href="../styles/act6.css">
+  <style>
+    /* Optional breathing room for charts */
+    .canvas-wrap { min-height: 260px; }
+    .canvas-wrap.small { min-height: 220px; }
+  </style>
 </head>
 <body>
   <header class="topbar">
@@ -22,16 +27,14 @@
     </div>
 
     <div class="actions">
-      <button id="btnStart" class="btn primary" title="Start tracking">▶ Start</button>
-      <button id="btnStop" class="btn" title="Stop tracking" disabled>⏸ Stop</button>
-      <button id="btnSpeak" class="btn" title="Speak last location">🔊 Speak</button>
+      <!-- GPS is fully automatic; no start/stop buttons -->
       <button id="btnCenter" class="btn" title="Center map">📍 Center</button>
 
       <div class="divider"></div>
 
       <label class="field">
         <span>Source</span>
-        <select id="dataSource">
+        <select id="dataSource" title="GPS data source">
           <option value="geolocation">Browser Geolocation</option>
           <option value="api">REST API (Pi)</option>
         </select>
@@ -40,6 +43,12 @@
 
       <div class="divider"></div>
       <button id="btnTheme" class="btn" title="Toggle theme">🌓 Theme</button>
+
+      <!-- Auto speech toggle -->
+      <label class="switch" style="margin-left:.5rem">
+        <input type="checkbox" id="autoSpeak" />
+        <span>Auto</span>
+      </label>
     </div>
   </header>
 
@@ -67,7 +76,7 @@
         <div id="map"></div>
       </article>
 
-      <!-- GPS Accuracy (m) — moved into the former speed slot -->
+      <!-- GPS Accuracy (m) -->
       <article class="card chart-card">
         <div class="card-head"><h2>GPS Accuracy (m)</h2><span class="hint">Lower is better</span></div>
         <div class="canvas-wrap"><canvas id="gpsAccChart"></canvas></div>
@@ -85,8 +94,7 @@
             </select>
           </label>
           <input id="accApiUrl" class="input" placeholder="http://192.168.x.x:5000/api/acc (ax, ay, az, timestamp?)" />
-          <button id="accStart" class="btn primary">Start Accel</button>
-          <button id="accStop" class="btn" disabled>Stop Accel</button>
+          <!-- No accel buttons; accel is automatic -->
         </div>
         <div class="row stats">
           <div>ax (g): <b id="ax">—</b></div>
