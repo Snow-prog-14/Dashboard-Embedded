@@ -4,9 +4,10 @@
 
 const ENDPOINTS = {
   PIR_URL:    "http://192.168.1.48:5000/api/pir",
-  DHT_URL:    "http://192.168.1.48:5000/api/dht",
+  DHT_URL:    "http://192.168.1.48:5000/api/dht/read",
   NOTIFY_URL: "",
-  CAM_URL:    "http://192.168.1.48:5000/api/cam"
+  CAM_URL:    "http://192.168.1.48:5000/api/pir/cam",
+  BUZZ_URL: "http://192.168.1.48:5000/api/buzzer/beep"
 };
 
 const DEFAULTS = {
@@ -17,6 +18,9 @@ const DEFAULTS = {
   WEBCAM_WIDTH: 320,
   WEBCAM_HEIGHT: 240
 };
+
+const BUZZ_COOLDOWN_MS = 2000;  // don’t spam the buzzer
+let lastBuzzTs = 0;
 
 const SAMPLE_MS = 120;
 const DHT_POLL_MS = 5000;
@@ -311,6 +315,22 @@ function computeIntensity(){
   lastFrameSmall = curr;
   return changed / total;
 }
+async function buzzBuzzer(ms = 150) {
+  const nowTs = Date.now();
+  if (!ENDPOINTS.BUZZ_URL || (nowTs - lastBuzzTs) < BUZZ_COOLDOWN_MS) return;
+  lastBuzzTs = nowTs;
+  try {
+    // Prefer POST with a duration; your /api/buzzer/beep accepts GET/POST.
+    await fetch(ENDPOINTS.BUZZ_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ms })
+    });
+  } catch (e) {
+    // Fallback GET if POST fails
+    try { await fetch(ENDPOINTS.BUZZ_URL); } catch (_) {}
+  }
+}
 
 async function pollPIR(){
   let value = 0, ts = now();
@@ -329,6 +349,7 @@ async function pollPIR(){
     markEvent(ts, 1.0);
     addCapture(ts);
     maybeNotify(ts, 1.0, 1);
+    buzzBuzzer(400);                 // <— buzz on PIR trigger
     lastEventActive = true;
     aboveCount = TRIGGER_CONSEC;
   }
@@ -379,6 +400,7 @@ function loop(){
       markEvent(ts, intensity);
       addCapture(ts);
       maybeNotify(ts, intensity, pirVal);
+      buzzBuzzer(400);               // <— buzz on motion trigger
     }
     lastEventActive = active;
     pushIntensityAndClamp(ts, intensity, effThresh);

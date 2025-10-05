@@ -1,9 +1,14 @@
 document.addEventListener('DOMContentLoaded', () => {
   // ===== Settings =====
-  const UPDATE_MS = 5000; // live update cadence
-  const API_URL = 'http://192.168.43.185:5000/api/dht';
-  const STORAGE_KEY = 'sensor_readings'; // localStorage key
-  const MAX_DAYS_KEEP = 7;               // trim older than N days
+  const UPDATE_MS = 5000;
+  const API_URL = 'http://192.168.1.48:5000/api/dht/read';
+  const BUZZ_URL = `http://192.168.1.48:5000/api/buzzer/beep`;
+  const STORAGE_KEY = 'sensor_readings';
+  const MAX_DAYS_KEEP = 7;
+
+  const TEMP_THRESHOLD_C = 38;
+  const BUZZ_COOLDOWN_MS = 5000; // don't buzz more often than this when hot
+  let lastBuzzTs = 0;
 
   // ===== Helpers =====
   const $ = s => document.querySelector(s);
@@ -25,17 +30,14 @@ document.addEventListener('DOMContentLoaded', () => {
       return Array.isArray(arr) ? arr : [];
     } catch { return []; }
   }
-
   function saveAll(arr) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
     if (elRecCount) elRecCount.textContent = String(arr.length);
   }
-
   function trimOld(arr) {
     const cutoff = Date.now() - MAX_DAYS_KEEP*24*60*60*1000;
     return arr.filter(r => new Date(r.ts).getTime() >= cutoff);
   }
-
   function formatLocal(tsISO) {
     const d = new Date(tsISO);
     const pad = n => String(n).padStart(2,'0');
@@ -69,7 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
     tbodyLogs.innerHTML = html;
   }
 
-  // ===== Chart setup (defensive if Chart or canvas missing) =====
+  // ===== Chart setup =====
   const canvas = document.getElementById('histChart');
   const hasChart = typeof Chart !== 'undefined' && canvas && canvas.getContext;
   const labels = [], tempData = [], humData = [];
@@ -114,7 +116,20 @@ document.addEventListener('DOMContentLoaded', () => {
     if (elUpdated) elUpdated.textContent = tsISO ? new Date(tsISO).toLocaleTimeString() : new Date().toLocaleTimeString();
   }
 
-  // ===== Fetch from Pi (normalize keys) =====
+  // ===== NEW: buzzer trigger =====
+  async function buzz(ms=300) {
+    try {
+      await fetch(BUZZ_URL, {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json' },
+        body: JSON.stringify({ ms })
+      });
+    } catch (e) {
+      console.error('Buzz failed:', e);
+    }
+  }
+
+  // ===== Fetch from Pi =====
   async function fetchLatest() {
     const res = await fetch(API_URL, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -129,7 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return { temp, humidity, ts: tsISO };
   }
 
-  // ===== Seed chart/cards from local history =====
+  // ===== Seed from history =====
   function seedFromHistory(minutes){
     const all = loadAll();
     if (elRecCount) elRecCount.textContent = String(all.length);
@@ -170,8 +185,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const r = await fetchLatest();
         if (Number.isFinite(r.temp) && Number.isFinite(r.humidity)) {
           addReading(r);
+
+          // HOT: trigger buzzer with cooldown
+          const now = Date.now();
+          if (r.temp > TEMP_THRESHOLD_C && now - lastBuzzTs > BUZZ_COOLDOWN_MS) {
+            lastBuzzTs = now;
+            buzz(400); // adjust ms if you want longer/shorter beep
+          }
         } else {
-          // still show time advance even if a transient null occurs
           setCards(r.temp, r.humidity, r.ts);
         }
       } catch (e) {
@@ -179,7 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     };
 
-    tick(); // immediate
+    tick();
     setInterval(tick, UPDATE_MS);
   }
 
@@ -202,6 +223,5 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ===== Start everything =====
   startLoop();
 });

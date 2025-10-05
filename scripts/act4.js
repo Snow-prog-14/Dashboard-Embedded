@@ -22,8 +22,12 @@ Chart.defaults.plugins.tooltip.bodyFont  = { size:13 };
 })();
 
 // ---------- Config ----------
-const GAS_URL = 'http://172.100.8.77:5000/api/gas';        // <-- set your PI IP
-const VIB_URL = 'http://172.100.8.77:5000/api/vibrate';    // <-- set your PI IP
+const GAS_URL = 'http://192.168.1.48:5000/api/gas';        // <-- set your PI IP
+const VIB_URL = 'http://192.168.1.48:5000/api/vibrate';    // <-- set your PI IP
+const BUZZ_URL = "http://192.168.1.48:5000/api/buzzer/beep";
+
+const BUZZ_COOLDOWN_MS = 2000;
+let lastBuzzTs = 0;
 
 const STORAGE_KEY = 'gv_records';
 const MAX_DAYS_KEEP = 7;         // keep logs for 7 days
@@ -184,11 +188,33 @@ function parseVib(json){
   return { digital, ts: ts || Date.now() };
 }
 
+// ---------- Buzzer helper ----------
+async function buzzBuzzer(ms = 400) {
+  const t = Date.now();
+  if (!BUZZ_URL || (t - lastBuzzTs) < BUZZ_COOLDOWN_MS) return;
+  lastBuzzTs = t;
+  try {
+    await fetch(BUZZ_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ms })
+    });
+  } catch {
+    try { await fetch(BUZZ_URL); } catch {}
+  }
+}
+
 // ---------- Live alternating polling ----------
 let turnIsGas = true;                      // toggle each 500ms
 let lastGasPPM = 0;
 let lastVibDigital = 0;
 let lastTs = Date.now();
+
+// Track previous threshold states for edge-detection
+// 0=OK (<=400), 1=WARN (>400), 2=ALERT (>800)
+let lastGasLevel = 0;
+// 0 or 1 for vibration
+let lastVibLevel = 0;
 
 async function tick(){
   try{
@@ -233,6 +259,23 @@ async function tick(){
     if (lastVibDigital > 0) { status += (status==='OK'?'':' • ') + 'VIBRATION'; cls = (cls==='alert'?'alert':'warn'); }
     const elStatus = document.getElementById('lastStatus');
     if (elStatus){ elStatus.textContent = status; elStatus.className = cls; }
+
+    // ---- Buzz on threshold edges (400ms) ----
+    const gasNow =
+      (lastGasPPM > 800) ? 2 :
+      (lastGasPPM > 400) ? 1 : 0;
+
+    if (gasNow > lastGasLevel) {
+      // OK→WARN or WARN→ALERT (or OK→ALERT)
+      buzzBuzzer(400);
+    }
+    lastGasLevel = gasNow;
+
+    if (lastVibDigital === 1 && lastVibLevel === 0) {
+      // Vibration rising edge
+      buzzBuzzer(400);
+    }
+    lastVibLevel = lastVibDigital;
 
     // Record (log every 500ms with the latest combined values)
     appendRecord({ ts: now, gas_ppm: Math.round(lastGasPPM), vibration_digital: lastVibDigital, status });

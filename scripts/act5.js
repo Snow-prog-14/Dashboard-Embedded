@@ -21,7 +21,8 @@ const CONFIG = {
   ENDPOINTS: {
     sound: "http://192.168.1.48:5000/api/sound",
     rain:  "http://192.168.1.48:5000/api/rain",
-    env:   "http://192.168.1.48:5000/api/dht"
+    env:   "http://192.168.1.48:5000/api/dht/read",
+    buzzer:"http://192.168.1.48:5000/api/buzzer/beep"     // <-- buzzer API
   }
 };
 
@@ -371,6 +372,24 @@ async function getTick(){
   return { ts: Date.now(), sound: snd, rain, temp, hum };
 }
 
+// ------- Buzzer helper -------
+const BUZZ_COOLDOWN_MS = 2000;
+let _lastBuzzTs = 0;
+async function buzz(ms = 400){
+  const now = Date.now();
+  if (!CONFIG.ENDPOINTS.buzzer || (now - _lastBuzzTs) < BUZZ_COOLDOWN_MS) return;
+  _lastBuzzTs = now;
+  try {
+    await fetch(CONFIG.ENDPOINTS.buzzer, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ ms })
+    });
+  } catch {
+    try { await fetch(CONFIG.ENDPOINTS.buzzer); } catch {}
+  }
+}
+
 // ------- UI updates -------
 function updateSoundKPI(v){
   kSound.textContent = Math.round(Number(v));
@@ -396,8 +415,8 @@ function updateRainUI(intensity, temp, hum){
   const validated = core && envOK;
 
   if (CONFIG.USE_RAIN_BG) document.body.classList.toggle("raining", !!core);
-// start/stop raindrop animation with sensor detection
-rainFX.setActive(!!core);
+  // start/stop raindrop animation with sensor detection
+  rainFX.setActive(!!core);
 
   if (validated){
     rainBadge.textContent = "Raining";
@@ -415,6 +434,8 @@ rainFX.setActive(!!core);
     rainStatusIcon.textContent = "🌤️";
     rainStatusText.textContent = "Clear";
   }
+
+  return { core, envOK, validated }; // return for edge-detect logic
 }
 
 // ------- Loop -------
@@ -425,6 +446,11 @@ function setRun(on){
 function setPlayState(running){ btnToggle.textContent = running ? "⏸ Pause" : "▶ Play"; }
 
 let timer=null;
+
+// Edge trackers for buzzer triggers
+let _lastSoundHigh = false;
+let _lastRainValidated = false;
+
 async function tick(){
   try{
     const x = await getTick();
@@ -432,11 +458,11 @@ async function tick(){
 
     // Sound
     updateGauge(x.sound);
-    pushPoint(soundLine, lab, x.sound);   // <-- history will draw reliably
+    pushPoint(soundLine, lab, x.sound);
     updateSoundKPI(x.sound);
 
-    // Rain
-    updateRainUI(x.rain, x.temp, x.hum);
+    // Rain (+ env gating) — capture flags for edge detection
+    const rainFlags = updateRainUI(x.rain, x.temp, x.hum);
     pushPoint(rainLine, lab, x.rain);
 
     // Env
@@ -446,7 +472,17 @@ async function tick(){
     updateKPIs(x);
     lastUpdate.textContent = lab;
 
-    if (Number(x.sound) >= Number(thSound.value)) toast(`Sound high: ${Math.round(x.sound)} ${CONFIG.SOUND_UNIT}`, "bad");
+    // ------- Buzzer edges (400 ms) -------
+    // Sound threshold crossing: below -> >= thSound
+    const soundHigh = Number(x.sound) >= Number(thSound.value);
+    if (soundHigh && !_lastSoundHigh) buzz(400);
+    _lastSoundHigh = soundHigh;
+
+    // Rain validated crossing: false -> true (core rain + env gates)
+    if (rainFlags.validated && !_lastRainValidated) buzz(400);
+    _lastRainValidated = rainFlags.validated;
+
+    if (soundHigh) toast(`Sound high: ${Math.round(x.sound)} ${CONFIG.SOUND_UNIT}`, "bad");
   }catch(err){
     console.error(err);
     toast(String(err), "bad");

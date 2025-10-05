@@ -1,13 +1,9 @@
-
-/* =========================
-  CONFIG
-  ========================= */
 const CONFIG = {
   sensors: [
-    { name: 'A', url: 'http://192.168.43.185:5000/api/ultra', colorVar: '--accentA' },
-    { name: 'B', url: 'http://192.168.43.185:5000/api/sonic',  colorVar: '--accentB' }
+    { name: 'A', url: 'http://192.168.1.48:5000/api/ultra', colorVar: '--accentA' },
+    { name: 'B', url: 'http://192.168.1.48:5000/api/sonic',  colorVar: '--accentB' }
   ],
-  dht: { url: 'http://192.168.43.185:5000/api/dht', intervalMs: 5000 },
+  dht: { url: 'http://192.168.43.185:5000/api/dht/read', intervalMs: 5000 },
   intervalMs: 2000,
   windowPoints: 60,
   timeoutMs: 3500,
@@ -15,18 +11,40 @@ const CONFIG = {
 };
 const WINDOW_SEC = 60;
 
-/* toggles */
 const visible = { a:true, b:true, t:true, h:true };
-
-/* colors (resolved at start) */
 const COLORS = { a:'#7b83ff', b:'#ff8b8b', t:'#ff6b9e', h:'#3db6ff' };
 
-/* =========================
-  STATE & DOM
-  ========================= */
+const BUZZ = {
+  url: (() => {
+    const first = CONFIG.sensors.find(s => s.url);
+    return first ? first.url.replace(/\/api\/.*/, '') + '/api/buzzer/beep' : '';
+  })(),
+  ms: 350,
+  cooldownMs: 2000
+};
+let lastBuzzTs = 0;
+
+async function buzz(ms = BUZZ.ms){
+  if (!BUZZ.url) return;
+  try {
+    await fetch(BUZZ.url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ms })
+    });
+  } catch (e) {}
+}
+function maybeBuzz(shouldRing){
+  const now = Date.now();
+  if (shouldRing && (now - lastBuzzTs > BUZZ.cooldownMs)) {
+    lastBuzzTs = now;
+    buzz();
+  }
+}
+
 const state = [
-  { sent:0, ok:0, err:0, data:[] }, // A
-  { sent:0, ok:0, err:0, data:[] }  // B
+  { sent:0, ok:0, err:0, data:[] },
+  { sent:0, ok:0, err:0, data:[] }
 ];
 const dhtState = { t:[], h:[] };
 
@@ -51,9 +69,6 @@ const sctx        = stripCanvas.getContext('2d');
 const dhtCanvas   = document.getElementById('dhtChart');
 const dctx        = dhtCanvas.getContext('2d');
 
-/* =========================
-  HELPERS
-  ========================= */
 function getCSS(varName){ return getComputedStyle(document.documentElement).getPropertyValue(varName).trim(); }
 const nowTs = () => Math.floor(Date.now()/1000);
 const fmtTs = (t) => new Date(t*1000).toLocaleString();
@@ -77,7 +92,6 @@ function updateMiniStats(){
   elStatB.textContent = `B: req ${state[1].sent} • ok ${state[1].ok} • err ${state[1].err}`;
 }
 
-/* peak helpers */
 function peakOf(arr){
   const cutoff = nowTs() - WINDOW_SEC;
   let best = null;
@@ -86,7 +100,7 @@ function peakOf(arr){
       if (!best || p.value > best.value) best = p;
     }
   }
-  return best; // {ts,value} or null
+  return best;
 }
 function updateDHTPeaks(){
   const pt = peakOf(dhtState.t);
@@ -96,15 +110,11 @@ function updateDHTPeaks(){
   return {pt, ph};
 }
 
-/* jitter so distance dots don't overlap perfectly */
 function jitterFor(seed, amp=10){
   const f = Math.sin(seed*12.9898)*43758.5453;
-  return ((f - Math.floor(f)) - 0.5) * 2 * amp; // [-amp, +amp]
+  return ((f - Math.floor(f)) - 0.5) * 2 * amp;
 }
 
-/* =========================
-  POLLING
-  ========================= */
 async function pollSensor(i){
   const sensor = CONFIG.sensors[i]; if (!sensor.url) return;
   state[i].sent++; updateMiniStats();
@@ -132,12 +142,10 @@ async function pollLoop(){
   try{
     setBadge(elOverall,'warn','connecting…');
     await pollSensor(0); await sleep(STAGGER_MS); await pollSensor(1);
-
     const anyOK = state.some(s=>s.ok>0);
     const allErr = state.every(s=>s.sent>0 && s.ok===0);
     if (anyOK) setBadge(elOverall,'ok','connected');
     else if (allErr) setBadge(elOverall,'bad','offline');
-
     updateBuzzer(latestNumber(0), latestNumber(1));
     renderDistanceStrip();
   } finally {
@@ -163,21 +171,17 @@ async function pollDHT(){
       elUpdDht.textContent = `DHT error: ${msg}`;
       addDhtPoint('t', tNow, null); addDhtPoint('h', tNow, null);
     }
-    updateDHTPeaks();   // <-- update the text peaks
-    renderDHTChart();   // <-- redraw graph (also shows peak markers)
+    updateDHTPeaks();
+    renderDHTChart();
   }catch(e){
     elUpdDht.textContent = `DHT error: ${e}`;
   }
 }
 
-/* =========================
-  DRAW HELPERS
-  ========================= */
 function drawYGrid(ctx, M,PW,PH, yMin,yMax, yLabel){
   ctx.strokeStyle='#2a2a2a'; ctx.lineWidth=1;
-  ctx.beginPath(); ctx.moveTo(M.l, M.t); ctx.lineTo(M.l, M.t+PH); ctx.stroke();                  // Y axis
-  ctx.beginPath(); ctx.moveTo(M.l, M.t+PH); ctx.lineTo(M.l+PW, M.t+PH); ctx.stroke();            // X baseline
-
+  ctx.beginPath(); ctx.moveTo(M.l, M.t); ctx.lineTo(M.l, M.t+PH); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(M.l, M.t+PH); ctx.lineTo(M.l+PW, M.t+PH); ctx.stroke();
   ctx.setLineDash([3,4]); ctx.strokeStyle='#222';
   for(let i=0;i<=5;i++){
     const v = lerp(yMin,yMax,i/5);
@@ -185,7 +189,6 @@ function drawYGrid(ctx, M,PW,PH, yMin,yMax, yLabel){
     ctx.beginPath(); ctx.moveTo(M.l, y); ctx.lineTo(M.l+PW, y); ctx.stroke();
   }
   ctx.setLineDash([]);
-
   ctx.fillStyle = '#a9a9a9'; ctx.font = '12px system-ui,-apple-system,Segoe UI,Roboto,Arial';
   for(let i=0;i<=5;i++){
     const v = lerp(yMin,yMax,i/5);
@@ -222,19 +225,14 @@ function drawPeakDot(ctx, x, y, color){
   ctx.restore();
 }
 
-/* =========================
-  GRAPH 1: CATEGORICAL STRIP (A vs B)
-  ========================= */
 function renderDistanceStrip(){
   const W = stripCanvas.width, H = stripCanvas.height;
   sctx.clearRect(0,0,W,H);
   const M = {l:60,r:20,t:20,b:56};
   const PW = W - M.l - M.r, PH = H - M.t - M.b;
-
   const now = nowTs(), cutoff = now - WINDOW_SEC;
   const arrA = state[0].data.filter(p=>p.ts>=cutoff && typeof p.value==='number');
   const arrB = state[1].data.filter(p=>p.ts>=cutoff && typeof p.value==='number');
-
   const allVals = [];
   if (visible.a) allVals.push(...arrA.map(p=>p.value));
   if (visible.b) allVals.push(...arrB.map(p=>p.value));
@@ -244,13 +242,10 @@ function renderDistanceStrip(){
   const pad = Math.max(1,(yMaxRaw-yMinRaw)*0.2);
   const yMin = Math.max(0, yMinRaw - pad);
   const yMax = yMaxRaw + pad || 1;
-
   drawYGrid(sctx, M,PW,PH, yMin,yMax, 'cm');
-
   const xA = M.l + PW * 0.33;
   const xB = M.l + PW * 0.67;
   const jitterAmp = Math.max(6, PW*0.04);
-
   if (visible.a){
     sctx.save(); sctx.fillStyle = COLORS.a; sctx.globalAlpha = 0.9;
     for (const p of arrA){
@@ -269,13 +264,11 @@ function renderDistanceStrip(){
     }
     sctx.restore();
   }
-
   sctx.save();
   sctx.setLineDash([6,6]); sctx.strokeStyle = '#e67e22';
   const yTh = M.t + map(CONFIG.buzzerThresholdCm, yMax, yMin, 0, PH);
   sctx.beginPath(); sctx.moveTo(M.l, yTh); sctx.lineTo(M.l+PW, yTh); sctx.stroke();
   sctx.restore();
-
   sctx.fillStyle = '#a9a9a9'; sctx.font = '12px system-ui,-apple-system,Segoe UI,Roboto,Arial';
   sctx.textAlign = 'center';
   sctx.fillText('Sensor A', xA, M.t + PH + 24);
@@ -283,37 +276,27 @@ function renderDistanceStrip(){
   sctx.fillText('Sensors',  M.l + PW/2, M.t + PH + 40);
 }
 
-/* =========================
-  GRAPH 2: DHT LINE (Temp + Humidity) + PEAK MARKERS
-  ========================= */
 function renderDHTChart(){
   const W = dhtCanvas.width, H = dhtCanvas.height;
   dctx.clearRect(0,0,W,H);
   const M = {l:60,r:48,t:20,b:42};
   const PW = W - M.l - M.r, PH = H - M.t - M.b;
-
   const now = nowTs(), tMin = now - WINDOW_SEC, tMax = now;
   const ptsT = dhtState.t.filter(p=>p.ts>=tMin);
   const ptsH = dhtState.h.filter(p=>p.ts>=tMin);
-
-  // temp auto-range
   const tVals = ptsT.map(p=>p.value).filter(n=>typeof n==='number');
   const tMinRaw = tVals.length ? Math.min(...tVals) : 0;
   const tMaxRaw = tVals.length ? Math.max(...tVals) : 50;
   const tPad = Math.max(0.5,(tMaxRaw-tMinRaw)*0.2);
   const y1Min = Math.max(0,tMinRaw - tPad);
   const y1Max = tMaxRaw + tPad || 1;
-
   drawYGrid(dctx, M,PW,PH, y1Min,y1Max, '°C / %');
-
-  // vertical time grid + x ticks + x label
   dctx.setLineDash([3,4]); dctx.strokeStyle='#222';
   for(let i=0;i<=5;i++){
     const tx = M.l + map(lerp(tMin,tMax,i/5), tMin, tMax, 0, PW);
     dctx.beginPath(); dctx.moveTo(tx, M.t); dctx.lineTo(tx, M.t+PH); dctx.stroke();
   }
   dctx.setLineDash([]);
-
   dctx.fillStyle='#a9a9a9'; dctx.font='12px system-ui,-apple-system,Segoe UI,Roboto,Arial';
   dctx.textAlign='center';
   for(let i=0;i<=5;i++){
@@ -322,8 +305,6 @@ function renderDHTChart(){
     dctx.fillText(new Date(tt*1000).toLocaleTimeString(), x, M.t+PH+20);
   }
   dctx.fillText('time →', M.l + PW - 36, M.t + PH + 36);
-
-  // right humidity ticks (0..100)
   const y2Min = 0, y2Max = 100;
   dctx.fillStyle='#a9a9a9'; dctx.textAlign='left';
   for(let i=0;i<=5;i++){
@@ -332,13 +313,10 @@ function renderDHTChart(){
     dctx.fillText(String(Math.round(hv)), M.l+PW+8, y+4);
   }
   dctx.strokeStyle='#2a2a2a'; dctx.beginPath(); dctx.moveTo(M.l+PW, M.t); dctx.lineTo(M.l+PW, M.t+PH); dctx.stroke();
-
-  // plot temp
   if (visible.t){
     const pts = ptsT.map(p=>({ts:p.ts, v:p.value}));
     plotLineWithScale(dctx, pts, COLORS.t, M,PW,PH,tMin,tMax,y1Min,y1Max);
   }
-  // plot humidity
   if (visible.h){
     dctx.lineWidth=2; dctx.strokeStyle=COLORS.h; dctx.beginPath(); let started=false;
     for (const p of ptsH){
@@ -349,15 +327,13 @@ function renderDHTChart(){
     }
     if (started) dctx.stroke();
   }
-
-  /* peak markers (last 60s) */
-  const pt = peakOf(dhtState.t.filter(p=>p.ts>=tMin)); // peak temp
+  const pt = peakOf(dhtState.t.filter(p=>p.ts>=tMin));
   if (visible.t && pt && typeof pt.value==='number'){
     const x = M.l + map(pt.ts, tMin, tMax, 0, PW);
     const y = M.t + map(pt.value, y1Max, y1Min, 0, PH);
     drawPeakDot(dctx, x, y, COLORS.t);
   }
-  const ph = peakOf(dhtState.h.filter(p=>p.ts>=tMin)); // peak humidity
+  const ph = peakOf(dhtState.h.filter(p=>p.ts>=tMin));
   if (visible.h && ph && typeof ph.value==='number'){
     const x = M.l + map(ph.ts, tMin, tMax, 0, PW);
     const y = M.t + map(ph.value, y2Max, y2Min, 0, PH);
@@ -365,9 +341,6 @@ function renderDHTChart(){
   }
 }
 
-/* =========================
-  BUZZER
-  ========================= */
 function updateBuzzer(distA, distB){
   const isNum = v => typeof v==='number' && Number.isFinite(v);
   const aOK=isNum(distA), bOK=isNum(distB);
@@ -376,21 +349,18 @@ function updateBuzzer(distA, distB){
   const ring = (aOK && distA >= CONFIG.buzzerThresholdCm) || (bOK && distB >= CONFIG.buzzerThresholdCm);
   buzzerEl.classList.toggle('buzzer-on',  ring);
   buzzerEl.classList.toggle('buzzer-off', !ring);
+  maybeBuzz(ring);
 }
 
-/* =========================
-  TOGGLES
-  ========================= */
 function wireToggles(){
   COLORS.a = getCSS('--accentA') || COLORS.a;
   COLORS.b = getCSS('--accentB') || COLORS.b;
   COLORS.t = getCSS('--accentT') || COLORS.t;
   COLORS.h = getCSS('--accentH') || COLORS.h;
-
   if (!togglesEl) return;
   togglesEl.querySelectorAll('.toggle').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      const key = btn.dataset.series; // 'a' | 'b' | 't' | 'h'
+      const key = btn.dataset.series;
       visible[key] = !visible[key];
       btn.classList.toggle('active', visible[key]);
       renderDistanceStrip();
@@ -400,11 +370,7 @@ function wireToggles(){
   });
 }
 
-/* =========================
-  LIFECYCLE
-  ========================= */
 let dhtTimer = null;
-
 async function start(){
   setBadge(elOverall,'warn','connecting…');
   wireToggles();
@@ -412,7 +378,6 @@ async function start(){
   pollDHT();
   dhtTimer = setInterval(pollDHT, CONFIG.dht.intervalMs);
 }
-
 function stop(){
   if (dhtTimer) clearInterval(dhtTimer);
   if (loopHandle) { clearTimeout(loopHandle); loopHandle = null; }
