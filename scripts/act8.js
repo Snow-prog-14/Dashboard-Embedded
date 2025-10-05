@@ -1,18 +1,18 @@
 (function(){
   // ===== API endpoints =====
   const BASE        = "http://192.168.1.48:5000";
-  const LANG_API    = `${BASE}/api/langs`;
-  const SAY_PLAY    = `${BASE}/api/say_play`;
-  const PAUSE_API   = `${BASE}/api/pause`;
-  const RESUME_API  = `${BASE}/api/resume`;
-  const STOP_API    = `${BASE}/api/say_stop`;
-  const STATUS_API  = `${BASE}/api/status`;
-  const PLAY_FILE   = `${BASE}/api/play_file`;
-  const HIST_API    = `${BASE}/api/history`;
-  const DL_API      = `${BASE}/api/download`;
-  const DEL_API     = `${BASE}/api/delete`;
-  const REC_START   = `${BASE}/api/record_start`;
-  const REC_STOP    = `${BASE}/api/record_stop`;
+  const LANG_API    = `${BASE}/api/tts/langs`;
+  const SAY_PLAY    = `${BASE}/api/tts/say_play`;
+  const PAUSE_API   = `${BASE}/api/tts/pause`;
+  const RESUME_API  = `${BASE}/api/tts/resume`;
+  const STOP_API    = `${BASE}/api/tts/say_stop`;
+  const STATUS_API  = `${BASE}/api/tts/status`;
+  const PLAY_FILE   = `${BASE}/api/tts/play_file`;
+  const HIST_API    = `${BASE}/api/tts/history`;
+  const DL_API      = `${BASE}/api/tts/download`;
+  const DEL_API     = `${BASE}/api/tts/delete`;
+  const REC_START   = `${BASE}/api/tts/record_start`;
+  const REC_STOP    = `${BASE}/api/tts/record_stop`;
 
   // ===== Helpers =====
   function $(q){ return document.querySelector(q); }
@@ -133,7 +133,12 @@
     }
 
     playBtn.addEventListener('click', playThis);
-    dl.addEventListener('click', ()=>{ const a=document.createElement('a'); a.href=`${DL_API}?file=${encodeURIComponent(file)}`; a.download=file; a.click(); });
+        dl.addEventListener('click', ()=>{ const a = document.createElement('a');
+        a.href = `${DL_API}?file=${encodeURIComponent(file)}`;
+        a.download = file;
+        a.click();
+    });
+    
     del.addEventListener('click', async ()=>{
       if (playingRow===row) await stopPlay();
       const r=await fetch(`${DEL_API}?file=${encodeURIComponent(file)}`, {method:'DELETE'});

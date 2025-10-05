@@ -12,9 +12,10 @@ const ACC_API_MS = 40;                // ~25 Hz polling
 const DEFAULT_ACC_API = 'http://192.168.1.48:5000/api/acc';
 const ACC_DEMO_HZ = 50;               // 50 Hz simulated
 
-// Demo GPS (fallback) config
-const DEMO_STEP_M   = 1.6;            // meters per tick
-const DEMO_HEADING_JITTER = 12;       // degrees random walk
+// Buzzer (Pi API)
+const BUZZ_URL = 'http://192.168.1.48:5000/api/buzzer/beep';
+const BUZZ_COOLDOWN_MS = 2000;        // avoid hammering the buzzer
+let _lastBuzzTs = 0;
 
 /* ========= Elements ========= */
 const $ = s => document.querySelector(s);
@@ -57,6 +58,9 @@ let accCount = 0;
 
 // Speak toggle
 let isSpeaking = false;
+
+// Accel threshold edge tracking
+let _accOver = false;           // were we over 1.0g last sample?
 
 /* ========= Init ========= */
 init();
@@ -195,7 +199,6 @@ function onGeo(pos){
 }
 
 function onGeoErr(err){
-  // 1 = PERMISSION_DENIED, 2 = POSITION_UNAVAILABLE, 3 = TIMEOUT
   const msg = {
     1: 'Permission denied. Enable location in the browser/site settings.',
     2: 'Position unavailable. Move closer to Wi-Fi or try again.',
@@ -203,7 +206,6 @@ function onGeoErr(err){
   }[err.code] || (err.message || String(err));
   error(`Geolocation error: ${msg}`);
 
-  // Friendly fallback to demo seeded by current position
   if (err.code === 1 || err.code === 2) {
     info('Switching to demo seeded by your current location…');
     seedFromBrowserLocation().then((seed) => startDemo(seed));
@@ -236,7 +238,7 @@ function ingestFix(fix){
   if (chkPath.checked) pathLine.addLatLng([fix.lat, fix.lng]);
   if (!autoCentered) { centerOnLast(17); autoCentered = true; }
 
-  // Speed calc (for KPI only — no speed chart)
+  // Speed calc (for KPI only)
   const kmh = deriveSpeedKmh(fix, lastFix);
 
   // Chart
@@ -254,7 +256,7 @@ function deriveSpeedKmh(now, prev){
   const dt = (now.time - prev.time) / 1000; if (dt <= 0) return null;
   const meters = distanceMeters(prev.lat, prev.lng, now.lat, now.lng);
   let kmh = (meters / dt) * 3.6;
-  if (meters < 2) kmh = 0; // ignore jitter
+  if (meters < 2) kmh = 0;
   return kmh;
 }
 
@@ -296,7 +298,6 @@ function startDemo(seed){
     demoState.lng = seed.lng;
   }
   demoTimer = setInterval(() => {
-    // simple random walk
     const rad = (demoState.heading * Math.PI) / 180;
     const dLat = (DEMO_STEP_M * Math.cos(rad)) / 111_111;
     const dLng = (DEMO_STEP_M * Math.sin(rad)) / (111_111 * Math.cos((demoState.lat * Math.PI) / 180));
@@ -357,6 +358,21 @@ function stopACC(){
   if (accTimer){ clearInterval(accTimer); accTimer = null; }
 }
 
+async function buzz(ms = 400){
+  const now = Date.now();
+  if (!BUZZ_URL || (now - _lastBuzzTs) < BUZZ_COOLDOWN_MS) return;
+  _lastBuzzTs = now;
+  try{
+    await fetch(BUZZ_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ ms })
+    });
+  }catch{
+    try{ await fetch(BUZZ_URL); }catch{}
+  }
+}
+
 function handleAccSample(s){
   if (![s.ax, s.ay, s.az].every(Number.isFinite)) return;
 
@@ -366,6 +382,11 @@ function handleAccSample(s){
   // Charts
   pushAccRaw(ts, s.ax, s.ay, s.az);
   pushAccMag(ts, mag);
+
+  // ---- BUZZ when |a| crosses above 1.0g (edge detect) ----
+  const over = mag > 1.0;
+  if (over && !_accOver) { buzz(400); }
+  _accOver = over;
 
   // Stats
   accCount++;
