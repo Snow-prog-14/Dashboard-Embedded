@@ -3,33 +3,50 @@ Chart.defaults.responsive = true;
 Chart.defaults.maintainAspectRatio = false;
 
 /* ========= Config ========= */
-const POLL_MS = 2000;                 // GPS API polling
+const POLL_MS = 1000;                 // GPS demo/API poll (1 s for obvious movement)
 const DEFAULT_API_URL = 'http://192.168.1.48:5000/api/gps';
 const USE_HAVERSINE = true;
 
-// Accel
-const ACC_API_MS = 40;                // ~25 Hz polling
+// Accel (API polling)
+const ACC_API_MS = 40;                // ~25 Hz polling for API
 const DEFAULT_ACC_API = 'http://192.168.1.48:5000/api/acc';
-const ACC_DEMO_HZ = 50;               // 50 Hz simulated
 
-// Buzzer (Pi API)
-const BUZZ_URL = 'http://192.168.1.48:5000/api/buzzer/beep';
-const BUZZ_COOLDOWN_MS = 2000;        // avoid hammering the buzzer
-let _lastBuzzTs = 0;
+// Demo GPS (fallback) config — bigger, faster steps so it’s obvious
+const DEMO_STEP_M   = 5.0;            // meters per tick
+const DEMO_HEADING_JITTER = 10;       // degrees random walk
+
+// ---- Movement speech thresholds (edge-triggered via accelerometer) ----
+const MOVE_EDGE_G          = 1.00;    // nominal threshold for |a|
+const MOVE_HYSTERESIS_G    = 0.05;    // +/- band to avoid chatter
+const SPEAK_EDGE_COOLDOWN  = 8000;    // ms between movement/stopped announcements
+
+// ---- Auto-speak by distance (GPS; real data) ----
+const SPEAK_DIST_M             = 15;    // speak when moved ≥ 15 m (real GPS/API)
+const SPEAK_DISTANCE_COOLDOWN  = 6000;  // min gap for real GPS/API
+
+// ---- Demo accelerometer pattern: 5s move, 5s rest ----
+const ACC_DEMO_RATE_HZ   = 25;        // demo sampling rate
+const ACC_DEMO_PHASE_MS  = 5000;      // each phase duration
+
+// ---- Sliding windows (seconds) ----
+const GPS_WINDOW_S = 600;   // 10 minutes
+const ACC_WINDOW_S = 30;    // 30 seconds
+
+// Monotonic clock (seconds since page load)
+const T0 = performance.now();
+const nowSec = () => (performance.now() - T0) / 1000;
 
 /* ========= Elements ========= */
 const $ = s => document.querySelector(s);
 
-// Topbar controls
-const btnStart  = $('#btnStart');
-const btnStop   = $('#btnStop');
-const btnSpeak  = $('#btnSpeak');
+// Topbar controls (no Start/Stop now)
 const btnCenter = $('#btnCenter');
 const btnTheme  = $('#btnTheme');
 const selSrc    = $('#dataSource');
 const inpApi    = $('#apiUrl');
 const chkPath   = $('#chkPath');
 const toast     = $('#toast');
+const autoSpeak = $('#autoSpeak');
 
 // KPI fields
 const elLat = $('#lat'), elLng = $('#lng'), elAcc = $('#acc'), elTs = $('#ts'), elPts = $('#pts'), elSpd = $('#spd');
@@ -37,13 +54,11 @@ const elLat = $('#lat'), elLng = $('#lng'), elAcc = $('#acc'), elTs = $('#ts'), 
 // Accel controls + labels
 const accSource = $('#accSource');
 const accApiUrl = $('#accApiUrl');
-const accStart  = $('#accStart');
-const accStop   = $('#accStop');
 const elAx = $('#ax'), elAy = $('#ay'), elAz = $('#az'), elAmag = $('#amag'), elAccTs = $('#accTs'), elAccPts = $('#accPts');
 
 /* ========= State ========= */
 let map, marker, pathLine;
-let gpsAccChart, accRawChart, accMagChart; // (speed chart removed)
+let gpsAccChart, accRawChart, accMagChart;
 
 let path = [];         // GPS fixes
 let lastFix = null;
@@ -56,11 +71,19 @@ let autoCentered = false;
 let accTimer = null;   // accel demo/API timer
 let accCount = 0;
 
-// Speak toggle
+// Voice state
 let isSpeaking = false;
 
-// Accel threshold edge tracking
-let _accOver = false;           // were we over 1.0g last sample?
+// Accel auto-speak helpers
+let wasMoving = false;      // edge detector
+let lastEdgeSpeakTs = 0;    // cooldown for accel edges
+
+// Distance-based auto-speak helpers
+let distAnchor = { lat: null, lng: null }; // last spoken GPS coords
+let lastDistSpeakTs = 0;                   // cooldown for distance speech
+
+// Track if the GPS DEMO is running (to speak every step)
+let isDemoRunning = false;
 
 /* ========= Init ========= */
 init();
@@ -71,73 +94,113 @@ function init(){
 
   // Inputs
   inpApi.value = localStorage.getItem('gps_api_url') || DEFAULT_API_URL;
-  inpApi.addEventListener('change', () => localStorage.setItem('gps_api_url', inpApi.value.trim()));
+  inpApi.addEventListener('change', () => {
+    localStorage.setItem('gps_api_url', inpApi.value.trim());
+    restartTracking(); // apply new URL immediately if in API mode
+  });
+
   accApiUrl.value = localStorage.getItem('acc_api_url') || DEFAULT_ACC_API;
-  accApiUrl.addEventListener('change', () => localStorage.setItem('acc_api_url', accApiUrl.value.trim()));
+  accApiUrl.addEventListener('change', () => {
+    localStorage.setItem('acc_api_url', accApiUrl.value.trim());
+    restartACC(); // update polling target immediately
+  });
+
+  // Persist Auto toggle (default ON)
+  const savedAuto = localStorage.getItem('auto_speak_on_move');
+  autoSpeak.checked = savedAuto ? savedAuto === '1' : true;
+  autoSpeak.addEventListener('change', () =>
+    localStorage.setItem('auto_speak_on_move', autoSpeak.checked ? '1' : '0')
+  );
 
   // Map
   map = L.map('map', { zoomControl: true }).setView([14.5995, 120.9842], 13);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap'
+  }).addTo(map);
   marker = L.circleMarker([14.5995,120.9842], { radius: 7 }).addTo(map);
   pathLine = L.polyline([], { weight: 4, opacity: 0.9 }).addTo(map);
 
-  // Charts
+  // -------- Charts (sliding windows; x = seconds since load) --------
   gpsAccChart = new Chart($('#gpsAccChart'), {
     type: 'line',
-    data: { labels: [], datasets: [{ label: 'Accuracy (m)', data: [], fill: true, tension: 0.25, pointRadius: 0, borderWidth: 2 }]},
-    options: { animation: false, scales: { x: { ticks: { maxRotation: 0, autoSkip: true }}, y: { beginAtZero: true }}, plugins: { legend: { display: false } } }
+    data: { datasets: [{ label: 'Accuracy (m)', data: [], fill: true, tension: 0.25, pointRadius: 0, borderWidth: 2 }] },
+    options: {
+      parsing: false, normalized: true, animation: false,
+      scales: {
+        x: { type: 'linear', min: 0, max: GPS_WINDOW_S, ticks: { callback: v => `${Math.floor(v)}s` } },
+        y: { beginAtZero: true }
+      },
+      plugins: { legend: { display: false } }
+    }
   });
 
   accRawChart = new Chart($('#accRaw'), {
     type: 'line',
-    data: { labels: [], datasets: [
+    data: { datasets: [
       { label: 'ax (g)', data: [], tension: 0.1, pointRadius: 0, borderWidth: 1.6 },
       { label: 'ay (g)', data: [], tension: 0.1, pointRadius: 0, borderWidth: 1.6 },
       { label: 'az (g)', data: [], tension: 0.1, pointRadius: 0, borderWidth: 1.6 }
     ]},
-    options: { animation: false, scales: { x:{ ticks:{ maxRotation:0, autoSkip:true } }, y:{ beginAtZero:true } },
-      plugins:{ legend:{ display:true }, decimation:{ enabled:true, algorithm:'lttb', samples:300 } }
+    options: {
+      parsing: false, normalized: true, animation: false,
+      scales: {
+        x: { type: 'linear', min: 0, max: ACC_WINDOW_S, ticks: { callback: v => `${Math.floor(v)}s` } },
+        y: { beginAtZero: true }
+      },
+      plugins: { legend: { display: true }, decimation: { enabled: true, algorithm: 'lttb', samples: 300 } }
     }
   });
 
   accMagChart = new Chart($('#accMag'), {
     type: 'line',
-    data: { labels: [], datasets: [{ label: '|a| (g)', data: [], tension: 0.15, pointRadius: 0, borderWidth: 2 }]},
-    options: { animation: false, scales: { x:{ ticks:{ maxRotation:0, autoSkip:true } }, y:{ beginAtZero:true } },
-      plugins:{ legend:{ display:false }, decimation:{ enabled:true, algorithm:'lttb', samples:300 } }
+    data: { datasets: [{ label: '|a| (g)', data: [], tension: 0.15, pointRadius: 0, borderWidth: 2 }] },
+    options: {
+      parsing: false, normalized: true, animation: false,
+      scales: {
+        x: { type: 'linear', min: 0, max: ACC_WINDOW_S, ticks: { callback: v => `${Math.floor(v)}s` } },
+        y: { beginAtZero: true }
+      },
+      plugins: { legend: { display: false }, decimation: { enabled: true, algorithm: 'lttb', samples: 300 } }
     }
   });
 
-  // Ensure charts fill their cards even after layout shifts
+  // UI actions
+  btnCenter.addEventListener('click', () => centerOnLast(17));
+  btnTheme.addEventListener('click', toggleTheme);
+  selSrc.addEventListener('change', () => { restartTracking(); info('GPS source changed.'); });
+  chkPath.addEventListener('change', () => pathLine.setStyle({ opacity: chkPath.checked ? 0.9 : 0 }));
+
+  // Chart layout nudges
   setupChartResizer();
   kickResize();
   requestAnimationFrame(kickResize);
   setTimeout(kickResize, 120);
   window.addEventListener('load', kickResize);
   window.addEventListener('resize', kickResize);
-
-  // Buttons
-  btnStart.addEventListener('click', startTracking);
-  btnStop.addEventListener('click', stopTracking);
-  btnSpeak.addEventListener('click', toggleSpeak);
-  btnCenter.addEventListener('click', () => centerOnLast(17));
-  btnTheme.addEventListener('click', toggleTheme);
-  selSrc.addEventListener('change', () => { stopTracking(); info('Source changed.'); });
-  chkPath.addEventListener('change', () => pathLine.setStyle({ opacity: chkPath.checked ? 0.9 : 0 }));
-
-  // Accel buttons
-  accStart.addEventListener('click', startACC);
-  accStop.addEventListener('click', stopACC);
-
-  // Keyboard quick toggle
-  window.addEventListener('keydown', (e) => { if (e.key.toLowerCase() === 's') btnStart.disabled ? stopTracking() : startTracking(); });
-
-  // Nudge charts after the map settles
   map.whenReady(() => { map.invalidateSize(); kickResize(); });
   map.on('resize', kickResize);
+
+  // ACC source changes auto-restart the accelerometer
+  accSource.addEventListener('change', restartACC);
+
+  // ===== AUTO-START EVERYTHING =====
+  startACC();
+  startTracking();
+
+  // Stop timers cleanly when tab is hidden/unloaded
+  window.addEventListener('pagehide', cleanupTimers);
 }
 
-/* ========= Helper: seed from current browser location ========= */
+/* ========= Cleanup ========= */
+function cleanupTimers(){
+  if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  if (demoTimer) { clearInterval(demoTimer); demoTimer = null; }
+  if (accTimer)  { clearInterval(accTimer); accTimer = null; }
+  window.speechSynthesis.cancel();
+}
+
+/* ========= Helper ========= */
 function seedFromBrowserLocation() {
   return new Promise((resolve) => {
     if (!('geolocation' in navigator)) return resolve(null);
@@ -149,47 +212,45 @@ function seedFromBrowserLocation() {
   });
 }
 
-/* ========= GPS tracking ========= */
+/* ========= GPS tracking (automatic) ========= */
+function restartTracking(){ stopTracking(); startTracking(); }
+
 function startTracking(){
-  btnStart.disabled = true; btnStop.disabled = false;
+  // reset state
   path = []; lastFix = null; autoCentered = false;
   clearGpsAcc(); updateStats();
-  stopDemo(); // ensure no demo is running
+  stopDemo(); // ensure no previous demo is running
+  distAnchor = { lat: null, lng: null };
+  lastDistSpeakTs = 0;
 
   if (selSrc.value === 'geolocation') {
-    // Try to center/seed at current laptop location immediately
-    seedFromBrowserLocation().then((seed) => {
-      if (seed) {
-        marker.setLatLng([seed.lat, seed.lng]);
-        map.setView([seed.lat, seed.lng], 16);
-      }
-    });
-
-    if (!('geolocation' in navigator)) {
-      error('Geolocation not supported. Starting demo from your last known position if available.');
-      seedFromBrowserLocation().then((seed) => startDemo(seed));
-      return;
-    }
-
-    watchId = navigator.geolocation.watchPosition(onGeo, onGeoErr, {
-      enableHighAccuracy: true,
-      timeout: 15000,
-      maximumAge: 1000
-    });
-    info('Geolocation started. If it fails, we will auto-switch to demo from your current location.');
+    // Try once—if permission denied/unavailable, fall back to demo immediately
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        map.setView([pos.coords.latitude, pos.coords.longitude], 16);
+        marker.setLatLng([pos.coords.latitude, pos.coords.longitude]);
+        watchId = navigator.geolocation.watchPosition(onGeo, onGeoErr, {
+          enableHighAccuracy: true, timeout: 15000, maximumAge: 1000
+        });
+        info('Geolocation started.');
+      },
+      () => {
+        info('No geolocation permission — starting demo GPS.');
+        seedFromBrowserLocation().then((seed) => startDemo(seed));
+      },
+      { enableHighAccuracy: true, timeout: 3000, maximumAge: 1000 }
+    );
   } else {
     pollTimer = setInterval(fetchFromApi, POLL_MS);
     fetchFromApi();
-    info('Polling API…');
+    info('Polling GPS API…');
   }
 }
 
 function stopTracking(){
-  btnStart.disabled = false; btnStop.disabled = true;
   if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
   if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
   stopDemo();
-  info('Tracking stopped.');
 }
 
 function onGeo(pos){
@@ -200,12 +261,11 @@ function onGeo(pos){
 
 function onGeoErr(err){
   const msg = {
-    1: 'Permission denied. Enable location in the browser/site settings.',
-    2: 'Position unavailable. Move closer to Wi-Fi or try again.',
-    3: 'Timed out. Retrying…'
+    1: 'Permission denied.',
+    2: 'Position unavailable.',
+    3: 'Timed out.'
   }[err.code] || (err.message || String(err));
   error(`Geolocation error: ${msg}`);
-
   if (err.code === 1 || err.code === 2) {
     info('Switching to demo seeded by your current location…');
     seedFromBrowserLocation().then((seed) => startDemo(seed));
@@ -242,12 +302,14 @@ function ingestFix(fix){
   const kmh = deriveSpeedKmh(fix, lastFix);
 
   // Chart
-  if (fix.accuracy != null)
-    pushGpsAccuracy(new Date(fix.time).toLocaleTimeString(), Number(fix.accuracy));
+  if (fix.accuracy != null) pushGpsAccuracy(Number(fix.accuracy));
 
   // KPI
   lastFix = fix;
   updateStats(kmh);
+
+  // Auto-speak by distance/cooldown (special handling for DEMO)
+  maybeSpeakByDistance(fix);
 }
 
 function deriveSpeedKmh(now, prev){
@@ -256,7 +318,7 @@ function deriveSpeedKmh(now, prev){
   const dt = (now.time - prev.time) / 1000; if (dt <= 0) return null;
   const meters = distanceMeters(prev.lat, prev.lng, now.lat, now.lng);
   let kmh = (meters / dt) * 3.6;
-  if (meters < 2) kmh = 0;
+  if (meters < 2) kmh = 0; // ignore jitter
   return kmh;
 }
 
@@ -279,14 +341,133 @@ function updateStats(kmh=null){
   else Number(latest.accuracy) <= 10 ? elAcc.classList.add('good') : elAcc.classList.remove('good');
 }
 
-/* ========= GPS chart helpers ========= */
-function pushGpsAccuracy(label, meters){
-  gpsAccChart.data.labels.push(label);
-  gpsAccChart.data.datasets[0].data.push(meters);
-  if (gpsAccChart.data.labels.length > 240) { gpsAccChart.data.labels.shift(); gpsAccChart.data.datasets[0].data.shift(); }
+/* ========= Voice helpers ========= */
+function speakFix(fix, kmh){
+  const lat = fix.lat.toFixed(5);
+  const lng = fix.lng.toFixed(5);
+  const acc = fix.accuracy != null ? `, accuracy ${Number(fix.accuracy).toFixed(0)} meters` : '';
+  const speedPart = (kmh != null) ? `, speed ${kmh.toFixed(1)} kilometers per hour` : '';
+  const text = `Location latitude ${lat}, longitude ${lng}${acc}${speedPart}.`;
+
+  const u = new SpeechSynthesisUtterance(text);
+  u.onend = () => { isSpeaking = false; };
+  u.onerror = () => { isSpeaking = false; };
+  isSpeaking = true;
+  window.speechSynthesis.speak(u);
+}
+
+function speakMovementState(state){
+  const latest = path[path.length - 1];
+  if (!latest) return;
+
+  const lat = latest.lat.toFixed(5);
+  const lng = latest.lng.toFixed(5);
+  const acc = latest.accuracy != null ? `, accuracy ${Number(latest.accuracy).toFixed(0)} meters` : '';
+
+  const text = state === 'moving'
+    ? `Tracking moving. Location latitude ${lat}, longitude ${lng}${acc}.`
+    : `Tracking stopped at latitude ${lat}, longitude ${lng}${acc}.`;
+
+  const u = new SpeechSynthesisUtterance(text);
+  u.onend = () => { isSpeaking = false; };
+  u.onerror = () => { isSpeaking = false; };
+  isSpeaking = true;
+  window.speechSynthesis.speak(u);
+}
+
+/* ========= Auto-speak by GPS distance ========= */
+function maybeSpeakByDistance(fix){
+  if (!autoSpeak || !autoSpeak.checked) return;
+  if (window.speechSynthesis.speaking || isSpeaking) return;
+
+  const now = Date.now();
+
+  // DEMO mode: announce almost every step (tiny threshold, no cooldown)
+  const demoDistThreshold = DEMO_STEP_M * 0.3; // ~1.5 m with 5 m steps
+  const isDemo = isDemoRunning;
+
+  // First anchor → speak once immediately
+  if (distAnchor.lat == null || distAnchor.lng == null) {
+    distAnchor = { lat: fix.lat, lng: fix.lng };
+    lastDistSpeakTs = now;
+    speakFix(fix, deriveSpeedKmh(fix, path.length >= 2 ? path[path.length - 2] : null));
+    return;
+  }
+
+  const cooldown = isDemo ? 0 : SPEAK_DISTANCE_COOLDOWN;
+  const thresh   = isDemo ? demoDistThreshold : SPEAK_DIST_M;
+
+  if (now - lastDistSpeakTs < cooldown) return;
+
+  const moved = distanceMeters(distAnchor.lat, distAnchor.lng, fix.lat, fix.lng);
+  if (moved >= thresh) {
+    speakFix(fix, deriveSpeedKmh(fix, path.length >= 2 ? path[path.length - 2] : null));
+    distAnchor = { lat: fix.lat, lng: fix.lng };
+    lastDistSpeakTs = now;
+  }
+}
+
+/* ========= Chart helpers (sliding windows) ========= */
+// GPS Accuracy
+function pushGpsAccuracy(meters){
+  const t = nowSec();
+  const ds = gpsAccChart.data.datasets[0].data;
+  ds.push({ x: t, y: meters });
+
+  const minX = t - GPS_WINDOW_S;
+  while (ds.length && ds[0].x < minX) ds.shift();
+
+  gpsAccChart.options.scales.x.min = Math.max(0, minX);
+  gpsAccChart.options.scales.x.max = Math.max(GPS_WINDOW_S, t);
   gpsAccChart.update();
 }
-function clearGpsAcc(){ gpsAccChart.data.labels = []; gpsAccChart.data.datasets[0].data = []; gpsAccChart.update(); }
+function clearGpsAcc(){
+  gpsAccChart.data.datasets[0].data = [];
+  gpsAccChart.options.scales.x.min = 0;
+  gpsAccChart.options.scales.x.max = GPS_WINDOW_S;
+  gpsAccChart.update();
+}
+
+// Accel X/Y/Z
+function pushAccRaw(ts, ax, ay, az){
+  const t = nowSec();
+  const D = accRawChart.data.datasets;
+  D[0].data.push({ x: t, y: ax });
+  D[1].data.push({ x: t, y: ay });
+  D[2].data.push({ x: t, y: az });
+
+  const minX = t - ACC_WINDOW_S;
+  for (const ds of D) { while (ds.data.length && ds.data[0].x < minX) ds.data.shift(); }
+
+  accRawChart.options.scales.x.min = Math.max(0, minX);
+  accRawChart.options.scales.x.max = Math.max(ACC_WINDOW_S, t);
+  accRawChart.update();
+}
+
+// Accel |a|
+function pushAccMag(ts, mag){
+  const t = nowSec();
+  const D = accMagChart.data.datasets[0].data;
+  D.push({ x: t, y: mag });
+
+  const minX = t - ACC_WINDOW_S;
+  while (D.length && D[0].x < minX) D.shift();
+
+  accMagChart.options.scales.x.min = Math.max(0, minX);
+  accMagChart.options.scales.x.max = Math.max(ACC_WINDOW_S, t);
+  accMagChart.update();
+}
+
+function clearAccCharts(){
+  accRawChart.data.datasets.forEach(ds => ds.data = []);
+  accMagChart.data.datasets[0].data = [];
+  accRawChart.options.scales.x.min = 0;
+  accRawChart.options.scales.x.max = ACC_WINDOW_S;
+  accMagChart.options.scales.x.min = 0;
+  accMagChart.options.scales.x.max = ACC_WINDOW_S;
+  accRawChart.update();
+  accMagChart.update();
+}
 
 /* ========= GPS demo (fallback) ========= */
 let demoState = { lat: 14.5995, lng: 120.9842, heading: 45, accuracy: 8 };
@@ -297,7 +478,9 @@ function startDemo(seed){
     demoState.lat = seed.lat;
     demoState.lng = seed.lng;
   }
+  isDemoRunning = true;
   demoTimer = setInterval(() => {
+    // simple random walk
     const rad = (demoState.heading * Math.PI) / 180;
     const dLat = (DEMO_STEP_M * Math.cos(rad)) / 111_111;
     const dLng = (DEMO_STEP_M * Math.sin(rad)) / (111_111 * Math.cos((demoState.lat * Math.PI) / 180));
@@ -314,33 +497,60 @@ function startDemo(seed){
       speedMS: DEMO_STEP_M / (POLL_MS / 1000)
     });
   }, POLL_MS);
-  info('Demo GPS running (seeded from your current location when available).');
+  info('Demo GPS running (auto).');
 }
 
 function stopDemo(){
   if (demoTimer) { clearInterval(demoTimer); demoTimer = null; }
+  isDemoRunning = false;
 }
 
-/* ========= Accelerometer ========= */
+/* ========= Accelerometer (AUTOMATIC) ========= */
+function restartACC(){ stopACC(); startACC(); }
+
 function startACC(){
-  accStart.disabled = true; accStop.disabled = false;
   clearAccCharts(); accCount = 0; updateAccStats();
 
   const src = accSource.value;
   if (src === 'demo'){
-    // Simulated: mostly 1g on Z, occasional shakes
+    // Deterministic pattern: 5s REST (~0.94 g), 5s MOVE (~1.15–1.25 g), repeat
+    const t0 = Date.now();
+    let lastPhase = -1; // 0 = REST, 1 = MOVE
+
     accTimer = setInterval(() => {
       const t = Date.now();
-      const shake = Math.random() < 0.05 ? (Math.random()*1.5) : 0;
-      const ax = (Math.random()-0.5)*0.05 + (shake ? Math.sin(t/80)*shake : 0);
-      const ay = (Math.random()-0.5)*0.05 + (shake ? Math.cos(t/100)*shake : 0);
-      const az = 1 + (Math.random()-0.5)*0.05;
+      const phase = Math.floor((t - t0) / ACC_DEMO_PHASE_MS) % 2;
+
+      if (phase !== lastPhase) {
+        info(phase ? 'Demo: MOVING (5s)' : 'Demo: REST (5s)');
+        lastPhase = phase;
+      }
+
+      let ax, ay, az;
+
+      if (phase === 0) {
+        // REST: stay below 0.95 g so falling edge triggers
+        ax = (Math.random() - 0.5) * 0.005;
+        ay = (Math.random() - 0.5) * 0.005;
+        az = 0.94 + (Math.random() - 0.5) * 0.01;
+      } else {
+        // MOVE: above 1.05 g so rising edge triggers
+        const amp = 0.35;
+        ax = Math.sin(t / 120) * amp + (Math.random() - 0.5) * 0.02;
+        ay = Math.cos(t / 150) * amp + (Math.random() - 0.5) * 0.02;
+        az = 1.05 + (Math.random() - 0.5) * 0.02;
+      }
+
       handleAccSample({ ax, ay, az, time: t });
-    }, 1000 / ACC_DEMO_HZ);
+    }, 1000 / ACC_DEMO_RATE_HZ);
 
   } else {
     const url = (accApiUrl.value || '').trim();
-    if (!url){ alert('Enter Accel API URL.'); stopACC(); return; }
+    if (!url){
+      info('ACC API URL empty — using Demo until a URL is provided.');
+      accSource.value = 'demo';
+      return startACC();
+    }
     accTimer = setInterval(async ()=>{
       try{
         const res = await fetch(url, { cache:'no-store' });
@@ -354,23 +564,7 @@ function startACC(){
 }
 
 function stopACC(){
-  accStart.disabled = false; accStop.disabled = true;
   if (accTimer){ clearInterval(accTimer); accTimer = null; }
-}
-
-async function buzz(ms = 400){
-  const now = Date.now();
-  if (!BUZZ_URL || (now - _lastBuzzTs) < BUZZ_COOLDOWN_MS) return;
-  _lastBuzzTs = now;
-  try{
-    await fetch(BUZZ_URL, {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({ ms })
-    });
-  }catch{
-    try{ await fetch(BUZZ_URL); }catch{}
-  }
 }
 
 function handleAccSample(s){
@@ -383,14 +577,34 @@ function handleAccSample(s){
   pushAccRaw(ts, s.ax, s.ay, s.az);
   pushAccMag(ts, mag);
 
-  // ---- BUZZ when |a| crosses above 1.0g (edge detect) ----
-  const over = mag > 1.0;
-  if (over && !_accOver) { buzz(400); }
-  _accOver = over;
-
   // Stats
   accCount++;
   updateAccStats(s.ax, s.ay, s.az, mag, ts);
+
+  // --------- Edge-triggered movement speech (accel) ----------
+  if (!autoSpeak.checked) return; // respect toggle
+
+  const now = Date.now();
+  const canSpeakEdge = (now - lastEdgeSpeakTs) >= SPEAK_EDGE_COOLDOWN &&
+                       !window.speechSynthesis.speaking && !isSpeaking;
+
+  // Hysteresis around MOVE_EDGE_G
+  const rising  = !wasMoving && mag >= (MOVE_EDGE_G + MOVE_HYSTERESIS_G);
+  const falling =  wasMoving && mag <= (MOVE_EDGE_G - MOVE_HYSTERESIS_G);
+
+  if (rising) {
+    wasMoving = true;
+    if (canSpeakEdge) {
+      speakMovementState('moving');
+      lastEdgeSpeakTs = now;
+    }
+  } else if (falling) {
+    wasMoving = false;
+    if (canSpeakEdge) {
+      speakMovementState('stopped');
+      lastEdgeSpeakTs = now;
+    }
+  }
 }
 
 function updateAccStats(ax=null,ay=null,az=null,mag=null,ts=null){
@@ -400,30 +614,6 @@ function updateAccStats(ax=null,ay=null,az=null,mag=null,ts=null){
   if (mag!=null) elAmag.textContent = mag.toFixed(3);
   if (ts!=null) elAccTs.textContent = new Date(ts).toLocaleTimeString();
   elAccPts.textContent = accCount;
-}
-
-function pushAccRaw(ts, ax, ay, az){
-  const L = accRawChart.data.labels;
-  const D = accRawChart.data.datasets;
-  L.push(new Date(ts).toLocaleTimeString());
-  D[0].data.push(ax); D[1].data.push(ay); D[2].data.push(az);
-  if (L.length > 2000){ L.shift(); D.forEach(ds => ds.data.shift()); }
-  accRawChart.update();
-}
-
-function pushAccMag(ts, mag){
-  const L = accMagChart.data.labels;
-  const D = accMagChart.data.datasets[0].data;
-  L.push(new Date(ts).toLocaleTimeString());
-  D.push(mag);
-  if (L.length > 2000){ L.shift(); D.shift(); }
-  accMagChart.update();
-}
-
-function clearAccCharts(){
-  accRawChart.data.labels = []; accRawChart.data.datasets.forEach(ds => ds.data = []);
-  accMagChart.data.labels = []; accMagChart.data.datasets[0].data = [];
-  accRawChart.update(); accMagChart.update();
 }
 
 /* ========= Chart sizing helpers ========= */
@@ -447,11 +637,11 @@ function setupChartResizer(){
 function distanceMeters(lat1, lon1, lat2, lon2){
   if (!USE_HAVERSINE){
     const dx = (lat2-lat1) * 111_320;
-    const dy = (lon2-lon1) * 111_320 * Math.cos((lat1+lat2)/2 * Math.PI/180);
+    const dy = (lon2-lon1) * 111_320 * Math.cos(((lat1+lat2)/2) * Math.PI/180);
     return Math.hypot(dx, dy);
   }
   const R = 6371e3, toRad = x => x*Math.PI/180;
-  const dLat = toRad(lat2-lat1), dLon = toRad(lon2-lon1);
+  const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
   const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
   return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
@@ -461,23 +651,6 @@ function toEpochMs(t){
   const d = new Date(t);
   const v = d.getTime();
   return Number.isFinite(v) ? v : Date.now();
-}
-
-/* ========= Voice toggle ========= */
-function toggleSpeak(){
-  if (window.speechSynthesis.speaking || window.speechSynthesis.pending || isSpeaking) {
-    window.speechSynthesis.cancel(); isSpeaking = false; updateSpeakUI(false); return;
-  }
-  const latest = path[path.length - 1];
-  if (!latest) { info('No fix to speak yet.'); return; }
-  const u = new SpeechSynthesisUtterance(`Your location is latitude ${latest.lat.toFixed(5)}, longitude ${latest.lng.toFixed(5)}.`);
-  u.onend = () => { isSpeaking = false; updateSpeakUI(false); };
-  u.onerror = () => { isSpeaking = false; updateSpeakUI(false); };
-  isSpeaking = true; updateSpeakUI(true); window.speechSynthesis.speak(u);
-}
-function updateSpeakUI(active){
-  btnSpeak.textContent = active ? '⏹ Stop' : '🔊 Speak';
-  btnSpeak.setAttribute('aria-pressed', active ? 'true' : 'false');
 }
 
 /* ========= Theme + Toast ========= */
