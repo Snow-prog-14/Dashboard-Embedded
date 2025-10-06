@@ -1,97 +1,35 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Edge Face Security — Local Models</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../styles/act10.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Camera Background Login</title>
+  <link rel="stylesheet" href="../styles/act10.css" />
 </head>
 <body>
-<div class="app">
-  <header>
-    <div class="brand">Edge Face Security</div>
-    <div class="sp"></div>
-    <span class="pill"><span id="camDot" class="status-dot"></span><span id="camText">Camera</span></span>
-    <span class="pill"><span id="modelDot" class="status-dot"></span><span id="modelText">Models</span></span>
-    <span class="badge">Role: <strong id="roleText">—</strong></span>
-  </header>
-
-  <main class="stage">
-    <video id="cam" autoplay muted playsinline></video>
-    <canvas id="overlay"></canvas>
-
-    <!-- Prompt bar -->
-    <div id="promptBar" class="prompt-bar">Ready.</div>
-
-    <!-- Countdown overlay for admin face verification -->
-    <div id="countdown" class="countdown" hidden>10</div>
-
-    <div class="legend">
-      <span class="tag">Auto-scan nearest face</span>
-      <span class="tag">First enrollment becomes Admin</span>
-    </div>
-
-    <div class="controls">
-      <div class="stack">
-        <button id="btnStart" class="btn primary">Start Camera</button>
-        <button id="btnLoad" class="btn">Load Models</button>
-        <button id="btnEnroll" class="btn">Enroll</button>
-        <button id="btnReset" class="btn ghost" title="Dev only">Reset DB</button>
-      </div>
-    </div>
+  <img id="bgStream" class="bg" alt="Camera stream" />
+  <div id="bgSnapshot" class="bg bg-snapshot"></div>
+  <main class="content">
+    <section class="login-card" role="dialog" aria-labelledby="loginTitle" aria-describedby="loginDesc">
+      <h1 id="loginTitle">Sign in</h1>
+      <p id="loginDesc" class="muted">Please enter your credentials to continue.</p>
+      <form id="loginForm" autocomplete="on" aria-label="Sign in form">
+        <label for="username" class="lbl">Username</label>
+        <input id="username" name="username" type="text" class="inp" placeholder="yourname" required />
+        <label for="password" class="lbl">Password</label>
+        <div class="pwd-row">
+          <input id="password" name="password" type="password" class="inp" placeholder="••••••••" required />
+        </div>
+        <label class="chk">
+          <input id="chkShow" type="checkbox" />
+          <span>Show password</span>
+        </label>
+        <button id="btnSignin" type="submit" class="btn primary">Sign In</button>
+        <button id="btnCreate" type="button" class="btn ghost">Create an Account</button>
+        <p class="status">Status: <span id="status">starting…</span></p>
+      </form>
+    </section>
   </main>
-
-  <footer><div class="hint">Local demo. Data stays in this browser.</div></footer>
-</div>
-
-<!-- Modals -->
-<dialog id="mdlAdmin">
-  <div class="modal-h">Create Admin</div>
-  <div class="grid">
-    <div class="field"><label>Admin Name</label><input id="adminName" placeholder="e.g., Alex"/></div>
-    <div class="row">
-      <div class="field" style="flex:1"><label>Set PIN</label><input id="adminPin" type="password" inputmode="numeric" maxlength="8" placeholder="4–8 digits"/></div>
-      <div class="field" style="flex:1"><label>Confirm PIN</label><input id="adminPin2" type="password" inputmode="numeric" maxlength="8" placeholder="Repeat"/></div>
-    </div>
-    <div class="hint">We will capture: front → left (3/4) → right (3/4).</div>
-    <div class="row" style="justify-content:flex-end;margin-top:.5rem">
-      <button class="btn ghost" data-close>Cancel</button>
-      <button id="adminCreateGo" class="btn primary">Continue</button>
-    </div>
-  </div>
-</dialog>
-
-<dialog id="mdlEnroll">
-  <div class="modal-h">Enroll Person</div>
-  <div class="grid two">
-    <div class="field"><label>Full Name</label><input id="enName" placeholder="e.g., Jamie Cruz"/></div>
-    <div class="field">
-      <label>Role</label>
-      <select id="enRole">
-        <option value="Student">Student</option>
-        <option value="Admin">Admin</option>
-      </select>
-    </div>
-  </div>
-  <div class="field" id="enPinRow" hidden>
-    <label>Set PIN (Admin only)</label>
-    <input id="enPin" type="password" inputmode="numeric" maxlength="8" placeholder="4–8 digits"/>
-  </div>
-  <div class="hint">We’ll capture 9 samples: front, left (3/4), right (3/4). After that, the existing Admin must verify by face within 10 seconds.</div>
-  <div class="row" style="justify-content:flex-end;margin-top:.5rem">
-    <button class="btn ghost" data-close>Cancel</button>
-    <button id="enGo" class="btn primary">Start Capture</button>
-  </div>
-</dialog>
-
-<div id="toast" class="toast"></div>
-
-<!-- face-api.js library -->
-<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-<!-- your app -->
-<script src="../scripts/act10.js" defer></script>
+  <script src="../scripts/act10.js"></script>
 </body>
 </html>
