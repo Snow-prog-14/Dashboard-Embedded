@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Voice‑Controlled LEDs • Frontend</title>
+<link rel="stylesheet" href="../styles/act7.css">
+</head>
+<body>
+<header>
+<div class="brand">🎙️ Voice‑LEDs</div>
+<div class="pill" id="apiPill"><span class="dot" id="apiDot"></span><span id="apiText" class="muted">API: unknown</span></div>
+<div class="pill"><span class="dot" id="micDot"></span><span class="muted">Mic</span></div>
+<div class="pill"><span class="dot" id="recDot"></span><span class="muted">Recognizer</span></div>
+<div style="flex:1"></div>
+<button class="btn secondary" id="btnSim">Simulation: Off</button>
+</header>
+
+
+<div class="container">
+<div class="grid">
+<!-- Controls -->
+<section class="card span-8">
+<h2>Voice control</h2>
+<div class="row gap">
+<div class="field">
+<label for="lang">Language</label>
+<select id="lang">
+<option value="en-US">English (US)</option>
+<option value="en-PH">English (PH)</option>
+<option value="fil-PH">Filipino/Tagalog (PH)</option>
+<option value="ceb-PH">Cebuano (PH) — experimental</option>
+</select>
+</div>
+<button class="btn" id="btnStart">Start Listening</button>
+<button class="btn secondary" id="btnStop">Stop</button>
+<div class="field" style="min-width:260px;flex:1">
+<input id="apiBase" placeholder="API base (e.g., http://raspi.local:5000)" />
+<button class="btn ghost" id="btnSaveApi">Set API</button>
+</div>
+</div>
+<div class="grid cols-2" style="margin-top:12px">
+<div>
+<label class="muted">Live mic level</label>
+<canvas id="micCanvas"></canvas>
+</div>
+<div>
+<label class="muted">Transcript</label>
+<div class="log" id="log"></div>
+<div class="row inputbar" style="margin-top:8px">
+<input id="txtCmd" class="input" placeholder="Type a command" />
+<button class="btn" id="btnSend">Send</button>
+</div>
+</div>
+</div>
+</section>
+
+
+<!-- LED + DHT status -->
+<section class="card span-4">
+<h2>Status</h2>
+<div class="leds" style="margin-top:8px">
+<div class="led" id="led-red">
+<h3>Red</h3>
+<div class="status" data-k="red">—</div>
+<div class="row" style="margin-top:8px">
+<button class="btn" data-act="on" data-target="red">On</button>
+<button class="btn secondary" data-act="off" data-target="red">Off</button>
+<button class="btn ghost" data-act="blink" data-target="red">Blink</button>
+</div>
+</div>
+<div class="led" id="led-green">
+<h3>Green</h3>
+<div class="status" data-k="green">—</div>
+<div class="row" style="margin-top:8px">
+<button class="btn" data-act="on" data-target="green">On</button>
+<button class="btn secondary" data-act="off" data-target="green">Off</button>
+<button class="btn ghost" data-act="blink" data-target="green">Blink</button>
+</div>
+</div>
+<div class="led" id="led-blue">
+<h3>Blue</h3>
+<div class="status" data-k="blue">—</div>
+<div class="row" style="margin-top:8px">
+<button class="btn" data-act="on" data-target="blue">On</button>
+<button class="btn secondary" data-act="off" data-target="blue">Off</button>
+<button class="btn ghost" data-act="blink" data-target="blue">Blink</button>
+</div>
+</div>
+</div>
+<div class="card" style="margin-top:12px; background:#0c1320">
+<div class="row" style="justify-content:space-between;align-items:center">
+<h3 style="margin:0">RGB</h3>
+<input type="color" id="rgbPicker" value="#22c55e" />
+</div>
+<div class="row" style="margin-top:8px">
+<button class="btn" data-act="color" data-target="rgb">Set Color</button>
+<button class="btn secondary" data-act="off" data-target="rgb">Off</button>
+<button class="btn ghost" data-act="blink" data-target="rgb">Blink</button>
+</div>
+</div>
+<div class="card" style="margin-top:12px; background:#0c1320">
+<h3 style="margin:0 0 8px 0">DHT11</h3>
+<div class="row" style="gap:16px">
+<div class="pill"><strong id="tempC">--</strong><span class="muted">°C</span></div>
+<div class="pill"><strong id="hum">--</strong><span class="muted">%RH</span></div>
+<div class="pill"><span class="muted">Updated:</span> <span id="dhtTs" class="muted">—</span></div>
+</div>
+</div>
+</section>
+</div>
+</div>
+
+
+<script src="../scripts/act7.js"></script>
+</body>
+</html>
