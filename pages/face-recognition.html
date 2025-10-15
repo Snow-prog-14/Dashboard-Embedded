@@ -11,11 +11,25 @@
     <main class="feed">
       <div class="feed-box">
         <img id="camFeed" alt="camera feed">
+        <div id="enrollOverlay" class="enroll-overlay hidden">
+          <div class="eo-hints">
+            <span id="eoLight"  class="pill">Lighting: —</span>
+            <span id="eoCenter" class="pill">Look Straight: —</span>
+            <span id="eoDist"   class="pill">Face Position: —</span>
+          </div>
+          <div class="eo-oval"></div>
+          <div class="eo-bottom">
+            <div class="eo-progress"><div id="eoBar"></div></div>
+            <div class="eo-actions">
+              <button id="eoCancel" class="btn">Cancel</button>
+              <button id="eoScan"   class="btn">Scan</button>
+            </div>
+          </div>
+        </div>
       </div>
     </main>
 
     <aside class="side">
-      <!-- Camera status -->
       <div class="card">
         <div class="status-row">
           <span class="label">status:</span>
@@ -24,7 +38,6 @@
         </div>
       </div>
 
-      <!-- Camera stats (fps only) -->
       <div class="card">
         <div class="kv">
           <div class="k">fps</div>
@@ -32,9 +45,16 @@
         </div>
       </div>
 
-      <!-- Detection toggle -->
+      <div class="card">
+        <button id="btnRefresh" class="btn full">Refresh Feed</button>
+      </div>
+
       <div class="card">
         <button id="btnDetect" class="btn full">Detection: On</button>
+      </div>
+
+      <div class="card">
+        <button id="btnEnroll" class="btn full">Enroll Face</button>
       </div>
     </aside>
   </div>
