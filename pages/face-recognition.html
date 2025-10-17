@@ -7,56 +7,49 @@
   <link rel="stylesheet" href="../styles/act10.css">
 </head>
 <body>
-  <div class="wrap">
-    <main class="feed">
-      <div class="feed-box">
+  <div class="topbar">
+    <button id="btnRefresh" class="btn">refresh feed</button>
+    <button id="btnToggle" class="btn">detection: off</button>
+    <button id="btnEnroll" class="btn">enroll face</button>
+  </div>
+
+  <div class="layout">
+    <main class="left">
+      <div class="feed">
         <img id="camFeed" alt="camera feed">
-        <div id="enrollOverlay" class="enroll-overlay hidden">
-          <div class="eo-hints">
-            <span id="eoLight"  class="pill">Lighting: —</span>
-            <span id="eoCenter" class="pill">Look Straight: —</span>
-            <span id="eoDist"   class="pill">Face Position: —</span>
-          </div>
-          <div class="eo-oval"></div>
-          <div class="eo-bottom">
-            <div class="eo-progress"><div id="eoBar"></div></div>
-            <div class="eo-actions">
-              <button id="eoCancel" class="btn">Cancel</button>
-              <button id="eoScan"   class="btn">Scan</button>
-            </div>
-          </div>
-        </div>
       </div>
+      <div id="tags" class="tags"></div>
     </main>
 
-    <aside class="side">
-      <div class="card">
-        <div class="status-row">
-          <span class="label">status:</span>
-          <span id="statusDot" class="dot offline"></span>
-          <span id="statusText">offline</span>
-        </div>
-      </div>
+    <aside class="right">
+      <div class="stat"><span>fps:</span><b id="statFps">0.0</b></div>
+      <div class="stat"><span>faces:</span><b id="statFaces">0</b></div>
+      <div class="stat"><span>objects:</span><b id="statObjs">0</b></div>
 
       <div class="card">
-        <div class="kv">
-          <div class="k">fps</div>
-          <div id="statFps" class="v">0.0</div>
-        </div>
-      </div>
-
-      <div class="card">
-        <button id="btnRefresh" class="btn full">Refresh Feed</button>
-      </div>
-
-      <div class="card">
-        <button id="btnDetect" class="btn full">Detection: On</button>
-      </div>
-
-      <div class="card">
-        <button id="btnEnroll" class="btn full">Enroll Face</button>
+        <label class="lbl">input obj name here</label>
+        <input id="objInput" class="inp" placeholder="cell phone">
+        <button id="btnAdd" class="btn small">add obj</button>
+        <div id="objMsg" class="muted"></div>
       </div>
     </aside>
+  </div>
+
+  <!-- simple overlay stub (visual only for now) -->
+  <div id="enrollOverlay" class="overlay hidden">
+    <div class="panel">
+      <div class="row">
+        <span id="hintLight" class="pill">lighting: —</span>
+        <span id="hintCenter" class="pill">face the camera</span>
+        <span id="hintDist" class="pill">distance: —</span>
+      </div>
+      <div class="ellipse-wrap"><div class="ellipse"></div></div>
+      <div class="bar"><div id="enrollBar" style="width:0%"></div></div>
+      <div id="enrollStatus" class="muted">ready</div>
+      <div class="row">
+        <button id="btnCancel" class="btn small">close</button>
+      </div>
+    </div>
   </div>
 
   <script src="../scripts/act10.js"></script>
