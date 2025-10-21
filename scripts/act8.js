@@ -1,7 +1,7 @@
 (function(){
-  // ===== API endpoints =====
   const BASE        = "http://192.168.1.48:5000";
-  const LANG_API    = `${BASE}/api/tts/langs`;
+  const LANG_API    = `${BASE}/api/tts/out_langs`;
+  const STT_LANGS   = `${BASE}/api/tts/out_langs`;
   const SAY_PLAY    = `${BASE}/api/tts/say_play`;
   const PAUSE_API   = `${BASE}/api/tts/pause`;
   const RESUME_API  = `${BASE}/api/tts/resume`;
@@ -14,26 +14,23 @@
   const REC_START   = `${BASE}/api/tts/record_start`;
   const REC_STOP    = `${BASE}/api/tts/record_stop`;
 
-  // ===== Helpers =====
   function $(q){ return document.querySelector(q); }
   function option(v,l){ const o=document.createElement('option'); o.value=v; o.textContent=l; return o; }
   const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
   const fmt = s => { s=Math.max(0,Math.floor(s)); const m=Math.floor(s/60), ss=s%60; return `${m}:${ss<10?'0':''}${ss}`; };
 
-  // ===== Elements =====
   const els = {
     apiDot: $('#apiDot'), apiLabel: $('#apiLabel'),
     text: $('#text'), charHint: $('#charHint'),
-    voice: $('#voice'),
+    voice: $('#voice'), inputVoice: $('#inputVoice'),
     rate: $('#rate'), pitch: $('#pitch'), volume: $('#volume'),
     rateVal: $('#rateVal'), pitchVal: $('#pitchVal'), volVal: $('#volVal'),
     playToggle: $('#playToggle'), pauseToggle: $('#pauseToggle'), recordToggle: $('#recordToggle'),
     refreshBtn: $('#refreshBtn'), clearBtn: $('#clearBtn'),
-    stateVal: $('#stateVal'), langVal: $('#langVal'), voiceVal: $('#voiceVal'), queueVal: $('#queueVal'),
+    stateVal: $('#stateVal'), langVal: $('#langVal'), voiceVal: $('#voiceVal'),
     history: $('#history'),
   };
 
-  // ===== State =====
   let gttsList = [];
   let pollTimer = null;
   let playingRow = null;
@@ -44,23 +41,40 @@
     get(k,d){ try{ const v = localStorage.getItem('tts_'+k); return v?JSON.parse(v):d; }catch(e){ return d; } }
   };
 
-  // ===== API: langs & history =====
   async function fetchLangs(){
     try{
       const r = await fetch(LANG_API, {cache:'no-store'});
       const j = await r.json();
       gttsList = Array.isArray(j) ? j : (Array.isArray(j.languages) ? j.languages : []);
       els.apiLabel && (els.apiLabel.textContent = `Pi TTS — ${gttsList.length} langs`);
-    }catch(e){
-      gttsList=[]; els.apiDot&&(els.apiDot.style.background='#ef4444'); els.apiLabel&&(els.apiLabel.textContent='gTTS fetch failed');
+    }catch(_){
+      gttsList=[]; els.apiDot&&(els.apiDot.style.background='#ef4444'); els.apiLabel&&(els.apiLabel.textContent='langs fetch failed');
     }
+  }
+
+  async function fetchSttLangs(){
+    const sel = els.inputVoice;
+    if(!sel) return;
+    sel.innerHTML = '';
+    const add = (v,l)=> sel.appendChild(option(v,l));
+    try{
+      const r = await fetch(STT_LANGS, {cache:'no-store'});
+      const list = await r.json();
+      list.forEach(x=> add(x.code, `${x.name} (${x.code})`));
+    }catch(_){
+      add('auto','Auto detect');
+      add('en','English (en)');
+      add('tl','Filipino (tl)');
+    }
+    const saved = store.get('settings',{}).inputLang;
+    if (saved && [...sel.options].some(o=>o.value===saved)) sel.value=saved;
   }
 
   async function fetchHistory(){
     try{
       const r = await fetch(HIST_API, {cache:'no-store'});
       renderHistory(await r.json());
-    }catch(e){ renderHistory([]); }
+    }catch(_){ renderHistory([]); }
   }
 
   function populateVoice(){
@@ -73,11 +87,9 @@
     reflectSelections();
   }
 
-  // ===== UI helpers =====
   function reflectSelections(){
     els.langVal  && (els.langVal.textContent  = els.voice.value || '—');
     els.voiceVal && (els.voiceVal.textContent = 'gTTS');
-    els.queueVal && (els.queueVal.textContent = '0');
   }
   function setState(s){ els.stateVal && (els.stateVal.textContent = s); }
   function togglePlayLabel(on){ els.playToggle && (els.playToggle.textContent = on ? 'stop' : 'play'); }
@@ -89,13 +101,10 @@
   }
   function togglePauseLabel(){ els.pauseToggle && (els.pauseToggle.textContent = paused ? 'resume' : 'pause'); }
 
-  // ===== History UI =====
   function makeHistoryRow(item){
     const {file, duration} = item;
     const row = document.createElement('div'); row.className='hist-item';
-
     const playBtn = document.createElement('button'); playBtn.className='hist-btn'; playBtn.textContent='play';
-
     const body = document.createElement('div'); body.className='hist-body';
     const ttl  = document.createElement('div'); ttl.className='hist-title'; ttl.textContent=file;
 
@@ -115,7 +124,6 @@
 
     row.appendChild(playBtn); row.appendChild(body); row.appendChild(act);
 
-    // progress animation (front-end only)
     let timer=null; let startMs=0; let durS=Number(duration)||0;
     function reset(){ clearInterval(timer); timer=null; rng.value='0'; cur.textContent='0:00'; }
     function tick(){ const t=(performance.now()-startMs)/1000; rng.value=String(clamp(Math.floor(t),0,Math.max(1,Math.round(durS)))); cur.textContent=fmt(t); }
@@ -125,7 +133,6 @@
       const r = await fetch(`${PLAY_FILE}?file=${encodeURIComponent(file)}&rate=${rate}&pitch=${pitch}&volume=${vol}`);
       const j = await r.json();
       durS = Number(j.duration)||durS; rng.max=String(Math.max(1,Math.round(durS))); tot.textContent=fmt(durS);
-
       if (playingRow && playingRow!==row){ playingRow._reset&&playingRow._reset(); playingRow.classList.remove('playing'); }
       playingRow=row; row.classList.add('playing');
       setState('speaking'); togglePlayLabel(true); paused=false; togglePauseLabel();
@@ -133,12 +140,7 @@
     }
 
     playBtn.addEventListener('click', playThis);
-        dl.addEventListener('click', ()=>{ const a = document.createElement('a');
-        a.href = `${DL_API}?file=${encodeURIComponent(file)}`;
-        a.download = file;
-        a.click();
-    });
-    
+    dl.addEventListener('click', ()=>{ const a = document.createElement('a'); a.href = `${DL_API}?file=${encodeURIComponent(file)}`; a.download = file; a.click(); });
     del.addEventListener('click', async ()=>{
       if (playingRow===row) await stopPlay();
       const r=await fetch(`${DEL_API}?file=${encodeURIComponent(file)}`, {method:'DELETE'});
@@ -154,7 +156,6 @@
   }
   function pushHistoryFile(file, duration){ const row=makeHistoryRow({file, duration}); els.history.prepend(row); return row; }
 
-  // ===== Poll status =====
   function startStatusPoll(){ stopStatusPoll(); pollTimer=setInterval(checkStatus, 700); }
   function stopStatusPoll(){ if (pollTimer){ clearInterval(pollTimer); pollTimer=null; } }
   async function checkStatus(){
@@ -170,7 +171,6 @@
     playingRow=null;
   }
 
-  // ===== Play / Pause / Resume / Stop from textarea =====
   async function startPlayFromText(){
     const text=(els.text.value||'').trim(); if(!text){ els.text?.focus(); return; }
     const lang=els.voice.value||'auto', rate=parseFloat(els.rate.value), pitch=parseFloat(els.pitch.value), vol=parseFloat(els.volume.value);
@@ -188,47 +188,74 @@
   function togglePlay(){ if (els.playToggle.textContent==='play') startPlayFromText(); else stopPlay(); }
   function togglePause(){ if (!playingRow) return; paused ? resumePlay() : pausePlay(); }
 
-  // ===== Record (toggle) — mic on Pi, transcript to page =====
   let recording = false;
+
   async function toggleRecord(){
     if (!recording){
-      const lang=els.voice.value||'auto';
-      const r=await fetch(`${REC_START}?lang=${encodeURIComponent(lang)}`);
-      const j=await r.json(); if(!j.ok){ console.warn(j); return; }
-      recording=true; els.recordToggle.textContent='stop recording'; setState('recording');
+      const inLang = (els.inputVoice && els.inputVoice.value) ? els.inputVoice.value : 'auto';
+      try{
+        const r = await fetch(`${REC_START}?input_lang=${encodeURIComponent(inLang)}`, {cache:'no-store'});
+        const j = await r.json();
+        if(!j || !j.ok) return;
+        recording = true;
+        els.recordToggle.textContent = 'stop recording';
+        setState('recording');
+      }catch(_){}
     }else{
-      const r=await fetch(REC_STOP); const j=await r.json();
-      recording=false; els.recordToggle.textContent='record'; setState('idle');
-      if (j.ok){
-        if (j.text){ els.text.value = (els.text.value ? (els.text.value + "\n") : "") + j.text; updateCharHint(); }
-        if (els.voice.value==='auto' && j.lang){ els.voice.value=j.lang; reflectSelections(); }
+      const outLang = els.voice.value || 'en';
+      try{
+        const r = await fetch(`${REC_STOP}?translate_to=${encodeURIComponent(outLang)}`, {cache:'no-store'});
+        const j = await r.json();
+        recording = false;
+        els.recordToggle.textContent = 'record';
+        setState('idle');
+
+        if (j && j.ok){
+          const out = (typeof j.translated === 'string' && j.translated.trim() !== '')
+            ? j.translated
+            : (j.text || '');
+          els.text.value = out;
+          if (typeof updateCharHint === 'function') updateCharHint();
+
+          if ((els.voice.value === 'auto' || !els.voice.value) && j.lang){
+            els.voice.value = j.lang;
+            if (typeof reflectSelections === 'function') reflectSelections();
+          }
+        }
+      }catch(e){
+        recording = false;
+        els.recordToggle.textContent = 'record';
+        setState('idle');
       }
     }
   }
 
-  // ===== Events =====
   els.playToggle && els.playToggle.addEventListener('click', togglePlay);
   els.pauseToggle && els.pauseToggle.addEventListener('click', togglePause);
   els.recordToggle && els.recordToggle.addEventListener('click', toggleRecord);
 
   els.refreshBtn && els.refreshBtn.addEventListener('click', async ()=>{
     els.refreshBtn.disabled=true; els.refreshBtn.textContent='Refreshing…';
-    try{ await fetchLangs(); populateVoice(); await fetchHistory(); }
+    try{ await fetchLangs(); await fetchSttLangs(); populateVoice(); await fetchHistory(); }
     finally{ els.refreshBtn.disabled=false; els.refreshBtn.textContent='refresh'; }
   });
 
   els.clearBtn && els.clearBtn.addEventListener('click', ()=>{ els.text.value=''; updateCharHint(); els.text.focus(); });
   els.text && els.text.addEventListener('input', updateCharHint);
   els.voice && els.voice.addEventListener('change', ()=>{ store.set('settings', {...store.get('settings',{}), lang: els.voice.value}); reflectSelections(); });
+  els.inputVoice && els.inputVoice.addEventListener('change', ()=>{ store.set('settings', {...store.get('settings',{}), inputLang: els.inputVoice.value}); });
   ['rate','pitch','volume'].forEach(k=> els[k] && els[k].addEventListener('input', ()=>{ reflectSliderLabels(); store.set('settings', {...store.get('settings',{}), [k]: parseFloat(els[k].value)}); }));
 
-  // ===== Init =====
   (async ()=>{
     els.apiDot && (els.apiDot.style.background = '#22c55e');
     els.apiLabel && (els.apiLabel.textContent = 'Pi TTS ready');
-    await fetchLangs(); populateVoice(); await fetchHistory();
+    await fetchLangs(); await fetchSttLangs(); populateVoice(); await fetchHistory();
     const s = store.get('settings', null);
-    if (s){ els.rate.value=s.rate??1; els.pitch.value=s.pitch??1; els.volume.value=s.volume??1; if (s.lang && [...els.voice.options].some(o=>o.value===s.lang)) els.voice.value=s.lang; }
+    if (s){
+      els.rate.value=s.rate??1; els.pitch.value=s.pitch??1; els.volume.value=s.volume??1;
+      if (s.lang && [...els.voice.options].some(o=>o.value===s.lang)) els.voice.value=s.lang;
+      if (s.inputLang && els.inputVoice && [...els.inputVoice.options].some(o=>o.value===s.inputLang)) els.inputVoice.value=s.inputLang;
+    }
     reflectSliderLabels(); updateCharHint(); reflectSelections();
   })();
 
