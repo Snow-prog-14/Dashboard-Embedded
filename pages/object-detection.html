@@ -5,14 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Real-Time Object Detection (Webcam – No Backend)</title>
   <link rel="stylesheet" href="../styles/act9.css" />
-  <!-- Browser-only detector -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2"></script>
+  <!-- No TFJS needed; detection happens on the Raspberry Pi -->
 </head>
 <body>
   <header class="hero">
     <h1>Real-Time Object Detection</h1>
-    <p>Front-end only • Laptop camera • COCO-SSD in the browser</p>
   </header>
 
   <main class="container layout">
@@ -29,8 +26,6 @@
       </div>
 
       <div class="side-tools">
-        <label class="check"><input id="partialMatch" type="checkbox" /> partial match</label>
-        <button id="btnImportFromCurrent" class="btn">Add from detections</button>
         <button id="btnClearAllowed" class="btn danger">Clear all</button>
       </div>
 
@@ -47,15 +42,21 @@
     <!-- RIGHT: Stream + lists -->
     <section class="card stream-card">
       <div class="stream-wrap">
-        <video id="cam" autoplay playsinline muted></video>
+        <!-- We keep <video> only to preserve layout; stream is an <img> set by JS -->
+        <video id="cam" autoplay playsinline muted style="display:none"></video>
         <canvas id="overlay" width="640" height="480"></canvas>
         <div id="legend" class="legend"></div>
       </div>
 
       <div class="toolbar">
+        <button id="btnRefresh" class="btn">Refresh Feed</button>
+        <span class="spacer"></span>
+
         <label>Conf <span id="confVal">0.50</span></label>
         <input id="conf" type="range" min="0" max="1" step="0.01" value="0.50" />
         <span class="spacer"></span>
+
+        <!-- Start/Stop now control detection only -->
         <button id="btnStart" class="btn primary">Start</button>
         <button id="btnStop" class="btn">Stop</button>
         <span id="status" class="status">idle</span>
@@ -66,8 +67,6 @@
           <h3>Detected Objects</h3>
           <p id="detSummary" class="muted">Detected: 0 objects</p>
           <span class="spacer"></span>
-          <button id="btnVerify" class="btn primary">Verify w/ Minibot</button>
-          <span id="verifyStatus" class="status">idle</span>
         </div>
 
         <h4 class="subhead">Allowed</h4>

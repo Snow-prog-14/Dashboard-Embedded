@@ -36,7 +36,6 @@ body{
 .muted{color:var(--muted)} .tiny{font-size:12px}
 .spacer{flex:1}
 .status{margin-left:4px;font-size:12px;color:var(--muted)}
-.check{display:flex;align-items:center;gap:8px}
 
 /* Sidebar */
 .side-card{padding:14px;display:flex;flex-direction:column;gap:10px;min-height:0}
