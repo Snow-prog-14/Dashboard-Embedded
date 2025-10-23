@@ -128,7 +128,7 @@ function ensureCamImg() {
 }
 
 function streamUrl({ overlayOn }) {
-  // overlay parameter is just a hint; backend obeys /api/vision/overlay
+  // overlay param is just a hint; backend obeys /api/vision/overlay
   const o = overlayOn ? 1 : 0;
   return `${RASPI_BASE}/api/cam?overlay=${o}&kind=obj&_ts=${Date.now()}`;
 }
@@ -138,6 +138,11 @@ async function startStream(forceReload = false) {
   const url = streamUrl({ overlayOn: State.overlayOn });
   if (forceReload || img.src !== url) img.src = url;
   img.onerror = () => { statusEl.textContent = 'feed error'; };
+}
+
+// Stop the MJPEG stream by dropping the <img src>
+function stopStream() {
+  if (camImg) camImg.src = '';
 }
 
 btnRefresh.onclick = async () => {
@@ -192,11 +197,11 @@ function renderSide(objs){
   // Total objects detected (sum across classes)
   const total = objs.length;
 
-  // Per-class counts (kept as a breakdown)
+  // Per-class breakdown
   const byClass = new Map();
   objs.forEach(o => byClass.set(o.label, (byClass.get(o.label) || 0) + 1));
 
-  // Legend: show total first, then per-class lines
+  // Legend: total first, then per-class
   const lines = [`Objects Detected: <code>${total}</code>`];
   for (const [k, v] of byClass.entries()) lines.push(`${k}: <code>${v}</code>`);
   legend.innerHTML = lines.join('<br>');
@@ -209,7 +214,6 @@ function renderSide(objs){
   detListOk.innerHTML = ok.map(o => `<li><span>${escapeHtml(o.label)}</span><span class="badge">Detected</span></li>`).join('');
   detListForeign.innerHTML = foreign.map(o => `<li><span>${escapeHtml(o.label)}</span><span class="badge foreign">Foreign</span></li>`).join('');
 }
-
 
 // ---------- Start/Stop (detection + overlay) ----------
 btnStart.onclick = async () => {
@@ -266,6 +270,38 @@ function renderAllowedTable(){
     };
   });
 }
+
+// ---------- Cleanup on tab close (free camera) ----------
+async function cleanupOnUnload() {
+  try {
+    // stop UI-side activity
+    stopPolling();
+    stopStream();
+
+    // tell backend to stop drawing/detecting
+    fetch(`${RASPI_BASE}/api/vision/mode`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ detect_faces: false, detect_objects: false, overlay: false }),
+      keepalive: true
+    });
+
+    // explicitly release camera on the Pi
+    fetch(`${RASPI_BASE}/api/vision/release`, {
+      method: 'POST',
+      keepalive: true
+    });
+  } catch (_) {}
+}
+
+window.addEventListener('pagehide', cleanupOnUnload, { capture: true });
+window.addEventListener('beforeunload', cleanupOnUnload);
+window.addEventListener('unload', cleanupOnUnload);
+
+// Optional: also pause when tab hidden
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) cleanupOnUnload();
+});
 
 // ---------- Start the camera feed on page load (NO overlay, NO detection) ----------
 document.addEventListener('DOMContentLoaded', async () => {
