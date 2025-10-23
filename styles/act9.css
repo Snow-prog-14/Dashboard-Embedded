@@ -1,0 +1,84 @@
+:root{
+  --bg:#0a0d12; --bg2:#0c1017;
+  --text:#e5eaf2; --muted:#9aa5b3;
+  --card:#0f141c; --line:#141b24; --shadow:0 10px 28px rgba(0,0,0,.45);
+  --brand:#4f7dff; --green:#22c55e;
+  --badge:#122034; --badge-text:#8fb5ff; --legend:#ffe27a;
+  --danger:#7a1f2a; --danger-border:#8d2a36;
+}
+
+/* Base */
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; color:var(--text);
+  font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,Arial,sans-serif;
+  background:
+    radial-gradient(900px 600px at 15% -10%, #0f1b2d 0%, transparent 60%),
+    radial-gradient(800px 540px at 90% 0%, #0d1e1a 0%, transparent 55%),
+    linear-gradient(180deg, var(--bg), var(--bg2));
+}
+.hero{max-width:1180px;margin:28px auto 16px;padding:0 16px;text-align:center}
+.hero h1{margin:0 0 6px;font-size:28px;font-weight:700}
+.hero p{margin:0;color:var(--muted);font-size:14px}
+
+/* Layout */
+.container{max-width:1180px;margin:0 auto 36px;padding:0 16px}
+.layout{display:grid;grid-template-columns:320px 1fr;gap:16px}
+@media (max-width: 980px){ .layout{grid-template-columns:1fr} }
+
+/* Cards & buttons */
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}
+.btn{padding:8px 12px;border:1px solid var(--line);background:#0b1017;color:var(--text);border-radius:10px;cursor:pointer}
+.btn.primary{background:var(--brand);color:#0b1017;border-color:var(--brand)}
+.btn.danger{background:var(--danger);border-color:var(--danger-border)}
+.btn:disabled{opacity:.6;cursor:default}
+.muted{color:var(--muted)} .tiny{font-size:12px}
+.spacer{flex:1}
+.status{margin-left:4px;font-size:12px;color:var(--muted)}
+.check{display:flex;align-items:center;gap:8px}
+
+/* Sidebar */
+.side-card{padding:14px;display:flex;flex-direction:column;gap:10px;min-height:0}
+.side-head{display:flex;align-items:baseline;gap:10px}
+.side-controls{display:flex;gap:8px}
+.side-controls input{flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#0b1017;color:var(--text)}
+.side-tools{display:flex;flex-wrap:wrap;gap:8px}
+.table-wrap{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#0b1017;min-height:140px;max-height:380px}
+.tbl{width:100%;border-collapse:collapse;color:#dbe3ee}
+.tbl thead{background:#0d121a}
+.tbl th,.tbl td{padding:10px;border-bottom:1px solid var(--line);font-size:14px}
+.tbl tr:last-child td{border-bottom:none}
+.row-actions{display:flex;gap:8px;justify-content:flex-end}
+
+/* Stream */
+.stream-card{padding:14px}
+.stream-wrap{position:relative;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#000}
+#cam{display:block;width:100%;height:auto;opacity:.98}
+#overlay{position:absolute;left:0;top:0;pointer-events:none}
+
+/* Legend */
+.legend{
+  position:absolute;left:12px;top:12px;
+  font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;line-height:1.35;color:#cbd5e1;
+  padding:8px 10px;background:rgba(10,14,20,.55);border:1px solid rgba(255,255,255,.06);border-radius:8px;
+  box-shadow:0 6px 18px rgba(0,0,0,.35)
+}
+.legend code{color:var(--legend);font-family:inherit}
+
+/* Toolbar */
+.toolbar{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding:10px 12px;background:#0d121a;border:1px solid var(--line);border-radius:12px
+}
+.toolbar label{font-size:13px;color:var(--muted)}
+.toolbar input[type="range"]{height:28px}
+
+/* Inner list card */
+.inner{margin-top:14px;padding:14px;background:#0b1017;border:1px solid var(--line)}
+.list-head{display:flex;align-items:baseline;gap:14px;margin-bottom:8px}
+.list-head h3{margin:0;font-size:16px}
+.subhead{margin:8px 0 6px;font-size:13px;color:var(--muted);font-weight:600;letter-spacing:.2px}
+.list{list-style:none;margin:0;padding:0}
+.list li{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#0a0f16;margin-bottom:8px}
+.badge{font-size:12px;padding:4px 10px;border-radius:999px;background:#122034;color:#8fb5ff;border:1px solid #1d3150}
+.badge.foreign{background:#3a0f12;color:#ff9aa4;border-color:#612028}
