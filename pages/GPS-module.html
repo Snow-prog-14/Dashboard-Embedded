@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>GPS Tracker</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <link rel="stylesheet" href="../styles/act6.css">
+  <style>
+    /* Optional breathing room for charts */
+    .canvas-wrap { min-height: 260px; }
+    .canvas-wrap.small { min-height: 220px; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="dot"></span>
+      <h1>GPS Tracker</h1>
+    </div>
+
+    <div class="actions">
+      <!-- GPS is fully automatic; no start/stop buttons -->
+      <button id="btnCenter" class="btn" title="Center map">📍 Center</button>
+
+      <div class="divider"></div>
+
+      <label class="field">
+        <span>Source</span>
+        <select id="dataSource" title="GPS data source">
+          <option value="geolocation">Browser Geolocation</option>
+          <option value="api">REST API (Pi)</option>
+        </select>
+      </label>
+      <input id="apiUrl" class="input" placeholder="http://192.168.x.x:5000/api/gps" />
+
+      <div class="divider"></div>
+      <button id="btnTheme" class="btn" title="Toggle theme">🌓 Theme</button>
+
+      <!-- Auto speech toggle -->
+      <label class="switch" style="margin-left:.5rem">
+        <input type="checkbox" id="autoSpeak" />
+        <span>Auto</span>
+      </label>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="grid">
+      <!-- KPIs -->
+      <article class="card kpis">
+        <div class="kpi"><div class="kpi-label">Latitude</div><div class="kpi-value" id="lat">—</div></div>
+        <div class="kpi"><div class="kpi-label">Longitude</div><div class="kpi-value" id="lng">—</div></div>
+        <div class="kpi"><div class="kpi-label">Accuracy</div><div class="kpi-chip good" id="acc">—</div></div>
+        <div class="kpi"><div class="kpi-label">Speed</div><div class="kpi-chip" id="spd">—</div></div>
+        <div class="kpi"><div class="kpi-label">Last Update</div><div class="kpi-muted" id="ts">—</div></div>
+        <div class="kpi"><div class="kpi-label">Points</div><div class="kpi-chip" id="pts">0</div></div>
+      </article>
+
+      <!-- Map -->
+      <article class="card map-card">
+        <div class="card-head">
+          <h2>Map & Path</h2>
+          <label class="switch">
+            <input type="checkbox" id="chkPath" checked />
+            <span>Show Path</span>
+          </label>
+        </div>
+        <div id="map"></div>
+      </article>
+
+      <!-- GPS Accuracy (m) -->
+      <article class="card chart-card">
+        <div class="card-head"><h2>GPS Accuracy (m)</h2><span class="hint">Lower is better</span></div>
+        <div class="canvas-wrap"><canvas id="gpsAccChart"></canvas></div>
+      </article>
+
+      <!-- Row of three: Accelerometer, Accel X/Y/Z, Accel |a| -->
+      <article class="card third-card">
+        <div class="card-head"><h2>Accelerometer</h2></div>
+        <div class="row">
+          <label class="field">
+            <span>Source</span>
+            <select id="accSource">
+              <option value="demo">Demo (simulated)</option>
+              <option value="api">REST API</option>
+            </select>
+          </label>
+          <input id="accApiUrl" class="input" placeholder="http://192.168.x.x:5000/api/acc (ax, ay, az, timestamp?)" />
+          <!-- No accel buttons; accel is automatic -->
+        </div>
+        <div class="row stats">
+          <div>ax (g): <b id="ax">—</b></div>
+          <div>ay (g): <b id="ay">—</b></div>
+          <div>az (g): <b id="az">—</b></div>
+          <div>|a| (g): <b id="amag">—</b></div>
+          <div>Last Update: <b id="accTs">—</b></div>
+          <div>Samples: <b id="accPts">0</b></div>
+        </div>
+      </article>
+
+      <article class="card third-card">
+        <div class="card-head"><h2>Accel X/Y/Z (g)</h2><span class="hint">Strip chart</span></div>
+        <div class="canvas-wrap small"><canvas id="accRaw"></canvas></div>
+      </article>
+
+      <article class="card third-card">
+        <div class="card-head"><h2>Accel |a| (g)</h2><span class="hint">Activity indicator</span></div>
+        <div class="canvas-wrap small"><canvas id="accMag"></canvas></div>
+      </article>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <footer class="foot">
+    <small>Tip: outdoor/open sky improves accuracy. For Pi streaming, GPS API → <code>{ lat, lng, accuracy?, timestamp? }</code>; Accel API → <code>{ ax, ay, az, timestamp? }</code>.</small>
+  </footer>
+
+  <script src="../scripts/act6.js"></script>
+</body>
+</html>

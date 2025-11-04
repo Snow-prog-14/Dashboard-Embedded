@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gas & Vibration Monitor</title>
+
+  <!-- Chart.js + time adapter -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+  <link rel="stylesheet" href="../styles/act4.css" />
+</head>
+<body>
+  <div class="wrap">
+    <div class="hdr">
+      <h1>Gas & Vibration Monitor</h1>
+      <div class="row">
+        <span class="badge">Update: <span id="updSec">2s</span></span>
+        <span class="badge">Saved: <span id="recCount">0</span></span>
+        <button id="btnCSV">Export CSV</button>
+        <button id="btnClear">Clear Logs</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0">Realtime Charts</h3>
+      <div class="split">
+        <canvas id="gasChart"></canvas>
+        <canvas id="vibChart"></canvas>
+      </div>
+
+      <!-- last-minute stats -->
+      <div class="mini-summary">
+        <div>
+          <div class="mini-title">Gas (last 1 min)</div>
+          <div class="mini-value"><span id="gasAvgMin">—</span> ppm</div>
+        </div>
+        <div>
+          <div class="mini-title">Vibration (last 1 min)</div>
+          <div class="mini-value">
+            <span id="vibPctOn">—</span>% ON • <span id="vibTrend">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 8px">Latest Reading</h3>
+      <div class="kv">
+        <label>Timestamp</label><div id="lastTs">—</div>
+        <label>Gas (ppm)</label><div id="lastGas">—</div>
+        <label>Vibration (digital)</label><div id="lastVib">—</div>
+        <label>Status</label><div id="lastStatus">—</div>
+      </div>
+    </div>
+  </div>
+  <script src="../scripts/act4.js"></script>
+</body>
+</html>

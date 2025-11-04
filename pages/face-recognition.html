@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Camera Background Login</title>
+  <link rel="stylesheet" href="../styles/act10.css" />
+</head>
+<body>
+  <img id="bgStream" class="bg" alt="Camera stream" />
+  <div id="bgSnapshot" class="bg bg-snapshot"></div>
+  <main class="content">
+    <section class="login-card" role="dialog" aria-labelledby="loginTitle" aria-describedby="loginDesc">
+      <h1 id="loginTitle">Sign in</h1>
+      <p id="loginDesc" class="muted">Please enter your credentials to continue.</p>
+      <form id="loginForm" autocomplete="on" aria-label="Sign in form">
+        <label for="username" class="lbl">Username</label>
+        <input id="username" name="username" type="text" class="inp" placeholder="yourname" required />
+        <label for="password" class="lbl">Password</label>
+        <div class="pwd-row">
+          <input id="password" name="password" type="password" class="inp" placeholder="••••••••" required />
+        </div>
+        <label class="chk">
+          <input id="chkShow" type="checkbox" />
+          <span>Show password</span>
+        </label>
+        <button id="btnSignin" type="submit" class="btn primary">Sign In</button>
+        <button id="btnCreate" type="button" class="btn ghost">Create an Account</button>
+        <p class="status">Status: <span id="status">starting…</span></p>
+      </form>
+    </section>
+  </main>
+  <script src="../scripts/act10.js"></script>
+</body>
+</html>

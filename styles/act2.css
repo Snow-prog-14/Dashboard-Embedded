@@ -1,0 +1,55 @@
+:root{
+  --bg:#0f0f10;
+  --card:#17181a;
+  --text:#eaeaea;
+  --muted:#a0a0a0;
+  --accentA:#7b83ff;  /* Sensor A dots */
+  --accentB:#ff8b8b;  /* Sensor B dots */
+  --accentT:#ff6b9e;  /* Temp line */
+  --accentH:#3db6ff;  /* Humidity line */
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial}
+.wrap{max-width:1100px;margin:auto;padding:16px 20px 48px}
+
+h1{font-size:20px;margin:0 0 12px}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:12px}
+
+.card{
+  background:var(--card); border:1px solid #1e1f22; border-radius:14px; padding:12px;
+  box-shadow:0 1px 0 rgba(255,255,255,0.02) inset, 0 8px 24px rgba(0,0,0,0.25);
+}
+.title{font-weight:600;margin-bottom:6px;color:#fff}
+.muted{color:var(--muted)}
+.big{font-size:28px;font-weight:700;margin:2px 0 4px}
+.sub{font-size:12px;color:#muted}
+.row.tight{gap:8px}
+
+.badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:12px}
+.badge.ok{background:#11361c;color:#6bff9a;border:1px solid #1a5a2d}
+.badge.warn{background:#2b2a14;color:#ffe16b;border:1px solid #6b5f1a}
+.badge.bad{background:#3a1919;color:#ff9a9a;border:1px solid #5a1a1a}
+
+.buzzer{
+  display:flex;align-items:center;gap:8px; padding:8px 10px;border-radius:12px;
+  border:1px solid #262626; background:#121212;
+}
+.buzzer .dot{width:12px;height:12px;border-radius:50%;background:#555}
+.buzzer-on .dot{background:#ff5959; box-shadow:0 0 12px rgba(255,90,90,0.8)}
+.buzzer-on .label::after{content:" ON"; color:#ff9a9a}
+.buzzer-off .label::after{content:" OFF"; color:#9aff9a}
+
+.toggles{display:flex;flex-wrap:wrap;gap:8px}
+.toggle{
+  background:#141415;border:1px solid #2a2b2f;color:#cfcfcf;padding:6px 10px;border-radius:10px;font-size:12px;cursor:pointer;
+}
+.toggle.active{outline:2px solid #3a82f7;color:#fff}
+
+canvas{display:block;width:100%;height:auto;border:1px solid #1e1f22;border-radius:12px;background:linear-gradient(#141414,#101010)}
+#strip{margin-top:8px}
+#dhtChart{margin-top:8px}
+
+.legend{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+.key{display:inline-flex;align-items:center;gap:8px;color:#d6d6d6;font-size:12px}
+.sw{width:10px;height:10px;border-radius:50%}
