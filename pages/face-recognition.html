@@ -1,35 +1,57 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Camera Background Login</title>
-  <link rel="stylesheet" href="../styles/act10.css" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Camera Dashboard</title>
+  <link rel="stylesheet" href="../styles/act10.css">
 </head>
 <body>
-  <img id="bgStream" class="bg" alt="Camera stream" />
-  <div id="bgSnapshot" class="bg bg-snapshot"></div>
-  <main class="content">
-    <section class="login-card" role="dialog" aria-labelledby="loginTitle" aria-describedby="loginDesc">
-      <h1 id="loginTitle">Sign in</h1>
-      <p id="loginDesc" class="muted">Please enter your credentials to continue.</p>
-      <form id="loginForm" autocomplete="on" aria-label="Sign in form">
-        <label for="username" class="lbl">Username</label>
-        <input id="username" name="username" type="text" class="inp" placeholder="yourname" required />
-        <label for="password" class="lbl">Password</label>
-        <div class="pwd-row">
-          <input id="password" name="password" type="password" class="inp" placeholder="••••••••" required />
-        </div>
-        <label class="chk">
-          <input id="chkShow" type="checkbox" />
-          <span>Show password</span>
-        </label>
-        <button id="btnSignin" type="submit" class="btn primary">Sign In</button>
-        <button id="btnCreate" type="button" class="btn ghost">Create an Account</button>
-        <p class="status">Status: <span id="status">starting…</span></p>
-      </form>
-    </section>
-  </main>
+  <div class="topbar">
+    <button id="btnRefresh" class="btn">refresh feed</button>
+    <button id="btnToggle" class="btn">detection: off</button>
+    <button id="btnEnroll" class="btn">enroll face</button>
+  </div>
+
+  <div class="layout">
+    <main class="left">
+      <div class="feed">
+        <img id="camFeed" alt="camera feed">
+      </div>
+      <div id="tags" class="tags"></div>
+    </main>
+
+    <aside class="right">
+      <div class="stat"><span>fps:</span><b id="statFps">0.0</b></div>
+      <div class="stat"><span>faces:</span><b id="statFaces">0</b></div>
+      <div class="stat"><span>objects:</span><b id="statObjs">0</b></div>
+
+      <div class="card">
+        <label class="lbl">input obj name here</label>
+        <input id="objInput" class="inp" placeholder="cell phone">
+        <button id="btnAdd" class="btn small">add obj</button>
+        <div id="objMsg" class="muted"></div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- simple overlay stub (visual only for now) -->
+  <div id="enrollOverlay" class="overlay hidden">
+    <div class="panel">
+      <div class="row">
+        <span id="hintLight" class="pill">lighting: —</span>
+        <span id="hintCenter" class="pill">face the camera</span>
+        <span id="hintDist" class="pill">distance: —</span>
+      </div>
+      <div class="ellipse-wrap"><div class="ellipse"></div></div>
+      <div class="bar"><div id="enrollBar" style="width:0%"></div></div>
+      <div id="enrollStatus" class="muted">ready</div>
+      <div class="row">
+        <button id="btnCancel" class="btn small">close</button>
+      </div>
+    </div>
+  </div>
+
   <script src="../scripts/act10.js"></script>
 </body>
 </html>
