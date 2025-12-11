@@ -39,7 +39,6 @@
           <option value="api">REST API (Pi)</option>
         </select>
       </label>
-      <input id="apiUrl" class="input" placeholder="http://192.168.x.x:5000/api/gps" />
 
       <div class="divider"></div>
       <button id="btnTheme" class="btn" title="Toggle theme">🌓 Theme</button>
@@ -85,17 +84,7 @@
       <!-- Row of three: Accelerometer, Accel X/Y/Z, Accel |a| -->
       <article class="card third-card">
         <div class="card-head"><h2>Accelerometer</h2></div>
-        <div class="row">
-          <label class="field">
-            <span>Source</span>
-            <select id="accSource">
-              <option value="demo">Demo (simulated)</option>
-              <option value="api">REST API</option>
-            </select>
-          </label>
-          <input id="accApiUrl" class="input" placeholder="http://192.168.x.x:5000/api/acc (ax, ay, az, timestamp?)" />
-          <!-- No accel buttons; accel is automatic -->
-        </div>
+ 
         <div class="row stats">
           <div>ax (g): <b id="ax">—</b></div>
           <div>ay (g): <b id="ay">—</b></div>
