@@ -1,4 +1,6 @@
-// ------- Chart.js defaults: fill parent size -------
+// act6.js - full script (copy and paste to replace your current file)
+
+// Chart.js defaults: fill parent size
 Chart.defaults.responsive = true;
 Chart.defaults.maintainAspectRatio = false;
 
@@ -11,24 +13,24 @@ const USE_HAVERSINE = true;
 const ACC_API_MS = 40;                // ~25 Hz polling for API
 const DEFAULT_ACC_API = 'http://192.168.1.48:5000/api/acc';
 
-// Demo GPS (fallback) config — bigger, faster steps so it’s obvious
+// Demo GPS (fallback) config - bigger, faster steps so it is obvious
 const DEMO_STEP_M   = 5.0;            // meters per tick
 const DEMO_HEADING_JITTER = 10;       // degrees random walk
 
-// ---- Movement speech thresholds (edge-triggered via accelerometer) ----
+// Movement speech thresholds (edge-triggered via accelerometer)
 const MOVE_EDGE_G          = 1.00;    // nominal threshold for |a|
 const MOVE_HYSTERESIS_G    = 0.05;    // +/- band to avoid chatter
 const SPEAK_EDGE_COOLDOWN  = 8000;    // ms between movement/stopped announcements
 
-// ---- Auto-speak by distance (GPS; real data) ----
-const SPEAK_DIST_M             = 15;    // speak when moved ≥ 15 m (real GPS/API)
+// Auto-speak by distance (GPS; real data)
+const SPEAK_DIST_M             = 15;    // speak when moved >= 15 m (real GPS/API)
 const SPEAK_DISTANCE_COOLDOWN  = 6000;  // min gap for real GPS/API
 
-// ---- Demo accelerometer pattern: 5s move, 5s rest ----
+// Demo accelerometer pattern: 5s move, 5s rest
 const ACC_DEMO_RATE_HZ   = 25;        // demo sampling rate
 const ACC_DEMO_PHASE_MS  = 5000;      // each phase duration
 
-// ---- Sliding windows (seconds) ----
+// Sliding windows (seconds)
 const GPS_WINDOW_S = 600;   // 10 minutes
 const ACC_WINDOW_S = 30;    // 30 seconds
 
@@ -39,11 +41,11 @@ const nowSec = () => (performance.now() - T0) / 1000;
 /* ========= Elements ========= */
 const $ = s => document.querySelector(s);
 
-// Topbar controls (no Start/Stop now)
+// Topbar controls
 const btnCenter = $('#btnCenter');
 const btnTheme  = $('#btnTheme');
-const selSrc    = $('#dataSource');
-const inpApi    = $('#apiUrl');
+const selSrc    = $('#dataSource'); // user confirmed this exists
+const inpApi    = $('#apiUrl');     // optional
 const chkPath   = $('#chkPath');
 const toast     = $('#toast');
 const autoSpeak = $('#autoSpeak');
@@ -51,7 +53,7 @@ const autoSpeak = $('#autoSpeak');
 // KPI fields
 const elLat = $('#lat'), elLng = $('#lng'), elAcc = $('#acc'), elTs = $('#ts'), elPts = $('#pts'), elSpd = $('#spd');
 
-// Accel controls + labels
+// Accel controls + labels - HTML may not include accSource or accApiUrl, code handles that
 const accSource = $('#accSource');
 const accApiUrl = $('#accApiUrl');
 const elAx = $('#ax'), elAy = $('#ay'), elAz = $('#az'), elAmag = $('#amag'), elAccTs = $('#accTs'), elAccPts = $('#accPts');
@@ -73,6 +75,8 @@ let accCount = 0;
 
 // Voice state
 let isSpeaking = false;
+let preferredVoice = null;
+let ttsUnlocked = false;
 
 // Accel auto-speak helpers
 let wasMoving = false;      // edge detector
@@ -92,25 +96,34 @@ function init(){
   // Theme preference
   if (localStorage.getItem('theme') === 'light') document.documentElement.classList.add('light');
 
-  // Inputs
-  inpApi.value = localStorage.getItem('gps_api_url') || DEFAULT_API_URL;
-  inpApi.addEventListener('change', () => {
-    localStorage.setItem('gps_api_url', inpApi.value.trim());
-    restartTracking(); // apply new URL immediately if in API mode
-  });
+  // Inputs: some elements may not exist in minimal markup, guard them
+  if (inpApi) {
+    inpApi.value = localStorage.getItem('gps_api_url') || DEFAULT_API_URL;
+    inpApi.addEventListener('change', () => {
+      localStorage.setItem('gps_api_url', inpApi.value.trim());
+      restartTracking(); // apply new URL immediately if in API mode
+    });
+  }
 
-  accApiUrl.value = localStorage.getItem('acc_api_url') || DEFAULT_ACC_API;
-  accApiUrl.addEventListener('change', () => {
-    localStorage.setItem('acc_api_url', accApiUrl.value.trim());
-    restartACC(); // update polling target immediately
-  });
+  if (accApiUrl) {
+    accApiUrl.value = localStorage.getItem('acc_api_url') || DEFAULT_ACC_API;
+    accApiUrl.addEventListener('change', () => {
+      localStorage.setItem('acc_api_url', accApiUrl.value.trim());
+      restartACC(); // update polling target immediately
+    });
+  }
 
   // Persist Auto toggle (default ON)
   const savedAuto = localStorage.getItem('auto_speak_on_move');
-  autoSpeak.checked = savedAuto ? savedAuto === '1' : true;
-  autoSpeak.addEventListener('change', () =>
-    localStorage.setItem('auto_speak_on_move', autoSpeak.checked ? '1' : '0')
-  );
+  if (autoSpeak) {
+    autoSpeak.checked = savedAuto ? savedAuto === '1' : true;
+    autoSpeak.addEventListener('change', () =>
+      localStorage.setItem('auto_speak_on_move', autoSpeak.checked ? '1' : '0')
+    );
+  }
+
+  // Set up speech voice picking and unlock on first interaction
+  setupSpeech();
 
   // Map
   map = L.map('map', { zoomControl: true }).setView([14.5995, 120.9842], 13);
@@ -120,7 +133,7 @@ function init(){
   marker = L.circleMarker([14.5995,120.9842], { radius: 7 }).addTo(map);
   pathLine = L.polyline([], { weight: 4, opacity: 0.9 }).addTo(map);
 
-  // -------- Charts (sliding windows; x = seconds since load) --------
+  // Charts
   gpsAccChart = new Chart($('#gpsAccChart'), {
     type: 'line',
     data: { datasets: [{ label: 'Accuracy (m)', data: [], fill: true, tension: 0.25, pointRadius: 0, borderWidth: 2 }] },
@@ -165,10 +178,10 @@ function init(){
   });
 
   // UI actions
-  btnCenter.addEventListener('click', () => centerOnLast(17));
-  btnTheme.addEventListener('click', toggleTheme);
-  selSrc.addEventListener('change', () => { restartTracking(); info('GPS source changed.'); });
-  chkPath.addEventListener('change', () => pathLine.setStyle({ opacity: chkPath.checked ? 0.9 : 0 }));
+  if (btnCenter) btnCenter.addEventListener('click', () => centerOnLast(17));
+  if (btnTheme) btnTheme.addEventListener('click', toggleTheme);
+  if (selSrc) selSrc.addEventListener('change', () => { restartTracking(); info('GPS source changed.'); });
+  if (chkPath) chkPath.addEventListener('change', () => pathLine.setStyle({ opacity: chkPath.checked ? 0.9 : 0 }));
 
   // Chart layout nudges
   setupChartResizer();
@@ -180,15 +193,102 @@ function init(){
   map.whenReady(() => { map.invalidateSize(); kickResize(); });
   map.on('resize', kickResize);
 
-  // ACC source changes auto-restart the accelerometer
-  accSource.addEventListener('change', restartACC);
+  // ACC source optional - if present, changing it will restart
+  if (accSource) accSource.addEventListener('change', restartACC);
 
-  // ===== AUTO-START EVERYTHING =====
+  // Auto-start
   startACC();
   startTracking();
 
   // Stop timers cleanly when tab is hidden/unloaded
   window.addEventListener('pagehide', cleanupTimers);
+  window.addEventListener('beforeunload', cleanupTimers);
+}
+
+/* ========= Speech setup ========= */
+function setupSpeech(){
+  // pick a usable voice when available
+  function pickPreferredVoice(){
+    try {
+      const voices = window.speechSynthesis.getVoices();
+      if (!voices || !voices.length) { preferredVoice = null; return; }
+      preferredVoice = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('en')) || voices[0];
+      console.log('Preferred TTS voice:', preferredVoice.name, preferredVoice.lang);
+    } catch(e) {
+      preferredVoice = null;
+      console.warn('pickPreferredVoice failed', e);
+    }
+  }
+
+  if ('speechSynthesis' in window) {
+    if (typeof window.speechSynthesis.onvoiceschanged !== 'undefined') {
+      window.speechSynthesis.onvoiceschanged = pickPreferredVoice;
+    }
+    pickPreferredVoice();
+  } else {
+    console.warn('SpeechSynthesis not available in this browser');
+  }
+
+  // Create a one-time unlock on first user interaction so automatic speech will play later
+  function doUnlock(){
+    if (ttsUnlocked) return;
+    ttsUnlocked = true;
+    try {
+      const u = makeUtterance('Voice enabled');
+      window.speechSynthesis.speak(u);
+      console.log('TTS unlocked by user gesture');
+    } catch(e) {
+      console.warn('Unlock TTS failed', e);
+    }
+    document.removeEventListener('pointerdown', doUnlock);
+    document.removeEventListener('keydown', doUnlock);
+  }
+  document.addEventListener('pointerdown', doUnlock, { once: true });
+  document.addEventListener('keydown', doUnlock, { once: true });
+
+  // Add a small Test Speech button so user can click and confirm audio works
+  addTestSpeechButton();
+}
+
+function addTestSpeechButton(){
+  try {
+    const actions = document.querySelector('.actions');
+    if (!actions) return;
+    const btn = document.createElement('button');
+    btn.id = 'testSpeech';
+    btn.className = 'btn';
+    btn.textContent = 'Test Speech';
+    btn.title = 'Click to test text-to-speech';
+    btn.addEventListener('click', () => {
+      try {
+        const u = makeUtterance('Test voice active.');
+        window.speechSynthesis.speak(u);
+        console.log('Test speech uttered');
+      } catch (e) {
+        console.warn('Test speech failed', e);
+        showToast('Test speech failed');
+      }
+    });
+    actions.appendChild(btn);
+  } catch (e) {
+    console.warn('Could not insert Test Speech button', e);
+  }
+}
+
+function makeUtterance(text){
+  const u = new SpeechSynthesisUtterance(text);
+  if (preferredVoice) {
+    try { u.voice = preferredVoice; u.lang = preferredVoice.lang || 'en-US'; } catch(e){ /* ignore */ }
+  } else {
+    u.lang = 'en-US';
+  }
+  u.volume = 1;
+  u.rate = 1;
+  u.pitch = 1;
+  u.onstart = () => { isSpeaking = true; console.log('TTS start', text.slice(0,40)); };
+  u.onend = () => { isSpeaking = false; console.log('TTS end'); };
+  u.onerror = (ev) => { isSpeaking = false; console.warn('TTS error', ev); showToast('Speech error'); };
+  return u;
 }
 
 /* ========= Cleanup ========= */
@@ -197,7 +297,7 @@ function cleanupTimers(){
   if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
   if (demoTimer) { clearInterval(demoTimer); demoTimer = null; }
   if (accTimer)  { clearInterval(accTimer); accTimer = null; }
-  window.speechSynthesis.cancel();
+  try { window.speechSynthesis.cancel(); } catch(e){ /* ignore */ }
 }
 
 /* ========= Helper ========= */
@@ -223,8 +323,10 @@ function startTracking(){
   distAnchor = { lat: null, lng: null };
   lastDistSpeakTs = 0;
 
+  if (!selSrc) return;
+
   if (selSrc.value === 'geolocation') {
-    // Try once—if permission denied/unavailable, fall back to demo immediately
+    // Try once - if permission denied/unavailable, fall back to demo immediately
     navigator.geolocation.getCurrentPosition(
       pos => {
         map.setView([pos.coords.latitude, pos.coords.longitude], 16);
@@ -235,14 +337,16 @@ function startTracking(){
         info('Geolocation started.');
       },
       () => {
-        info('No geolocation permission — starting demo GPS.');
+        info('No geolocation permission - starting demo GPS.');
         seedFromBrowserLocation().then((seed) => startDemo(seed));
       },
       { enableHighAccuracy: true, timeout: 3000, maximumAge: 1000 }
     );
   } else {
+    const url = (inpApi && inpApi.value) ? inpApi.value.trim() : DEFAULT_API_URL;
     pollTimer = setInterval(fetchFromApi, POLL_MS);
-    fetchFromApi();
+    // call once now
+    fetchFromApi(url);
     info('Polling GPS API…');
   }
 }
@@ -254,6 +358,7 @@ function stopTracking(){
 }
 
 function onGeo(pos){
+  if (!pos || !pos.coords) return;
   const { latitude, longitude, accuracy, speed } = pos.coords;
   const time = pos.timestamp || Date.now();
   ingestFix({ lat: latitude, lng: longitude, accuracy, time, speedMS: speed });
@@ -264,17 +369,17 @@ function onGeoErr(err){
     1: 'Permission denied.',
     2: 'Position unavailable.',
     3: 'Timed out.'
-  }[err.code] || (err.message || String(err));
+  }[err && err.code] || (err && (err.message || String(err))) || 'Unknown error';
   error(`Geolocation error: ${msg}`);
-  if (err.code === 1 || err.code === 2) {
+  if (err && (err.code === 1 || err.code === 2)) {
     info('Switching to demo seeded by your current location…');
     seedFromBrowserLocation().then((seed) => startDemo(seed));
   }
 }
 
-async function fetchFromApi(){
+async function fetchFromApi(providedUrl){
   try{
-    const url = (inpApi.value || '').trim();
+    const url = (providedUrl || (inpApi && inpApi.value) || DEFAULT_API_URL).trim();
     if (!url) return;
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -282,11 +387,12 @@ async function fetchFromApi(){
     const time = j.timestamp ? toEpochMs(j.timestamp) : Date.now();
     ingestFix({ lat: Number(j.lat), lng: Number(j.lng), accuracy: j.accuracy ?? null, time });
   }catch(e){
-    error(`API error: ${e.message}`);
+    error(`API error: ${e && e.message ? e.message : String(e)}`);
   }
 }
 
 function ingestFix(fix){
+  if (!fix) return;
   if (!Number.isFinite(fix.lat) || !Number.isFinite(fix.lng)) return;
 
   // Add to path
@@ -294,9 +400,13 @@ function ingestFix(fix){
   if (path.length > 100000) path.shift();
 
   // Map visuals
-  marker.setLatLng([fix.lat, fix.lng]);
-  if (chkPath.checked) pathLine.addLatLng([fix.lat, fix.lng]);
-  if (!autoCentered) { centerOnLast(17); autoCentered = true; }
+  try {
+    marker.setLatLng([fix.lat, fix.lng]);
+    if (chkPath && chkPath.checked) pathLine.addLatLng([fix.lat, fix.lng]);
+    if (!autoCentered) { centerOnLast(17); autoCentered = true; }
+  } catch(e){
+    console.warn('Map update failed', e);
+  }
 
   // Speed calc (for KPI only)
   const kmh = deriveSpeedKmh(fix, lastFix);
@@ -313,6 +423,7 @@ function ingestFix(fix){
 }
 
 function deriveSpeedKmh(now, prev){
+  if (!now) return null;
   if (Number.isFinite(now.speedMS) && now.speedMS !== null) return Math.max(0, now.speedMS) * 3.6;
   if (!prev) return null;
   const dt = (now.time - prev.time) / 1000; if (dt <= 0) return null;
@@ -330,30 +441,34 @@ function centerOnLast(zoom=17){
 
 function updateStats(kmh=null){
   const latest = path[path.length - 1] || {};
-  elLat.textContent = latest.lat?.toFixed?.(6) ?? '—';
-  elLng.textContent = latest.lng?.toFixed?.(6) ?? '—';
-  elAcc.textContent = latest.accuracy != null ? `${Number(latest.accuracy).toFixed(0)} m` : '—';
-  elTs.textContent  = latest.time ? new Date(latest.time).toLocaleString() : '—';
-  elPts.textContent = path.length;
-  elSpd.textContent = kmh != null ? `${kmh.toFixed(1)} km/h` : '—';
+  if (elLat) elLat.textContent = latest.lat?.toFixed?.(6) ?? '—';
+  if (elLng) elLng.textContent = latest.lng?.toFixed?.(6) ?? '—';
+  if (elAcc) elAcc.textContent = latest.accuracy != null ? `${Number(latest.accuracy).toFixed(0)} m` : '—';
+  if (elTs) elTs.textContent  = latest.time ? new Date(latest.time).toLocaleString() : '—';
+  if (elPts) elPts.textContent = path.length;
+  if (elSpd) elSpd.textContent = kmh != null ? `${kmh.toFixed(1)} km/h` : '—';
 
-  if (latest.accuracy == null) elAcc.classList.remove('good');
-  else Number(latest.accuracy) <= 10 ? elAcc.classList.add('good') : elAcc.classList.remove('good');
+  if (elAcc) {
+    if (latest.accuracy == null) elAcc.classList.remove('good');
+    else Number(latest.accuracy) <= 10 ? elAcc.classList.add('good') : elAcc.classList.remove('good');
+  }
 }
 
-/* ========= Voice helpers ========= */
+/* ========= Voice helpers (use makeUtterance) ========= */
 function speakFix(fix, kmh){
+  if (!fix) return;
   const lat = fix.lat.toFixed(5);
   const lng = fix.lng.toFixed(5);
   const acc = fix.accuracy != null ? `, accuracy ${Number(fix.accuracy).toFixed(0)} meters` : '';
   const speedPart = (kmh != null) ? `, speed ${kmh.toFixed(1)} kilometers per hour` : '';
   const text = `Location latitude ${lat}, longitude ${lng}${acc}${speedPart}.`;
 
-  const u = new SpeechSynthesisUtterance(text);
-  u.onend = () => { isSpeaking = false; };
-  u.onerror = () => { isSpeaking = false; };
-  isSpeaking = true;
-  window.speechSynthesis.speak(u);
+  try {
+    const u = makeUtterance(text);
+    window.speechSynthesis.speak(u);
+  } catch(e) {
+    console.warn('Speech failed', e);
+  }
 }
 
 function speakMovementState(state){
@@ -368,17 +483,19 @@ function speakMovementState(state){
     ? `Tracking moving. Location latitude ${lat}, longitude ${lng}${acc}.`
     : `Tracking stopped at latitude ${lat}, longitude ${lng}${acc}.`;
 
-  const u = new SpeechSynthesisUtterance(text);
-  u.onend = () => { isSpeaking = false; };
-  u.onerror = () => { isSpeaking = false; };
-  isSpeaking = true;
-  window.speechSynthesis.speak(u);
+  try {
+    const u = makeUtterance(text);
+    window.speechSynthesis.speak(u);
+  } catch(e) {
+    console.warn('Speech failed', e);
+  }
 }
 
 /* ========= Auto-speak by GPS distance ========= */
 function maybeSpeakByDistance(fix){
   if (!autoSpeak || !autoSpeak.checked) return;
   if (window.speechSynthesis.speaking || isSpeaking) return;
+  if (!fix) return;
 
   const now = Date.now();
 
@@ -386,7 +503,7 @@ function maybeSpeakByDistance(fix){
   const demoDistThreshold = DEMO_STEP_M * 0.3; // ~1.5 m with 5 m steps
   const isDemo = isDemoRunning;
 
-  // First anchor → speak once immediately
+  // First anchor - speak once immediately
   if (distAnchor.lat == null || distAnchor.lng == null) {
     distAnchor = { lat: fix.lat, lng: fix.lng };
     lastDistSpeakTs = now;
@@ -511,9 +628,9 @@ function restartACC(){ stopACC(); startACC(); }
 function startACC(){
   clearAccCharts(); accCount = 0; updateAccStats();
 
-  const src = accSource.value;
+  const src = (accSource && accSource.value) ? accSource.value : 'demo';
   if (src === 'demo'){
-    // Deterministic pattern: 5s REST (~0.94 g), 5s MOVE (~1.15–1.25 g), repeat
+    // Deterministic pattern: 5s REST (~0.94 g), 5s MOVE (~1.15-1.25 g), repeat
     const t0 = Date.now();
     let lastPhase = -1; // 0 = REST, 1 = MOVE
 
@@ -545,10 +662,10 @@ function startACC(){
     }, 1000 / ACC_DEMO_RATE_HZ);
 
   } else {
-    const url = (accApiUrl.value || '').trim();
+    const url = (accApiUrl && accApiUrl.value) ? accApiUrl.value.trim() : DEFAULT_ACC_API;
     if (!url){
-      info('ACC API URL empty — using Demo until a URL is provided.');
-      accSource.value = 'demo';
+      info('ACC API URL empty - using Demo until a URL is provided.');
+      if (accSource) accSource.value = 'demo';
       return startACC();
     }
     accTimer = setInterval(async ()=>{
@@ -558,7 +675,7 @@ function startACC(){
         const j = await res.json(); // { ax, ay, az, timestamp? }
         const t = j.timestamp ? toEpochMs(j.timestamp) : Date.now();
         handleAccSample({ ax: Number(j.ax), ay: Number(j.ay), az: Number(j.az), time: t });
-      }catch(e){ console.warn('ACC API error:', e.message); }
+      }catch(e){ console.warn('ACC API error:', e && e.message ? e.message : String(e)); }
     }, ACC_API_MS);
   }
 }
@@ -568,6 +685,7 @@ function stopACC(){
 }
 
 function handleAccSample(s){
+  if (!s) return;
   if (![s.ax, s.ay, s.az].every(Number.isFinite)) return;
 
   const ts = s.time;
@@ -581,8 +699,8 @@ function handleAccSample(s){
   accCount++;
   updateAccStats(s.ax, s.ay, s.az, mag, ts);
 
-  // --------- Edge-triggered movement speech (accel) ----------
-  if (!autoSpeak.checked) return; // respect toggle
+  // Edge-triggered movement speech (accel)
+  if (!autoSpeak || !autoSpeak.checked) return; // respect toggle
 
   const now = Date.now();
   const canSpeakEdge = (now - lastEdgeSpeakTs) >= SPEAK_EDGE_COOLDOWN &&
@@ -608,12 +726,12 @@ function handleAccSample(s){
 }
 
 function updateAccStats(ax=null,ay=null,az=null,mag=null,ts=null){
-  if (ax!=null) elAx.textContent = ax.toFixed(3);
-  if (ay!=null) elAy.textContent = ay.toFixed(3);
-  if (az!=null) elAz.textContent = az.toFixed(3);
-  if (mag!=null) elAmag.textContent = mag.toFixed(3);
-  if (ts!=null) elAccTs.textContent = new Date(ts).toLocaleTimeString();
-  elAccPts.textContent = accCount;
+  if (ax!=null && elAx) elAx.textContent = ax.toFixed(3);
+  if (ay!=null && elAy) elAy.textContent = ay.toFixed(3);
+  if (az!=null && elAz) elAz.textContent = az.toFixed(3);
+  if (mag!=null && elAmag) elAmag.textContent = mag.toFixed(3);
+  if (ts!=null && elAccTs) elAccTs.textContent = new Date(ts).toLocaleTimeString();
+  if (elAccPts) elAccPts.textContent = accCount;
 }
 
 /* ========= Chart sizing helpers ========= */
@@ -657,11 +775,12 @@ function toEpochMs(t){
 function toggleTheme(){
   document.documentElement.classList.toggle('light');
   localStorage.setItem('theme', document.documentElement.classList.contains('light') ? 'light' : 'dark');
-  kickResize(); // fonts/layout change → resize charts
+  kickResize(); // fonts/layout change -> resize charts
 }
 
 let toastTimer = null;
 function showToast(text){
+  if (!toast) return;
   toast.textContent = text;
   toast.classList.add('show');
   clearTimeout(toastTimer);
